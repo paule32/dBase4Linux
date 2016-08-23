@@ -63,22 +63,21 @@ namespace dBaseParser
     //struct dBaseExpression;
     //struct class_op;
 
-    typedef boost::variant<
-          std::string
-        , double
-    > dBaseVariant;
-    std::map<std::string,dBaseVariant> dynamics;
-
-    //int backend = 0;
-    //int tmp_value_int = 0;
-
     enum dBaseTypes {
         unknown,
         m_value,
-        c_value
+        c_value,
+        i_value         // int type
     };
     dBaseTypes dBaseType;
-    static int tmp_pass = 0;
+    class dBaseVariants
+    {
+    public:
+        std::string data_name;
+        dBaseTypes  data_type;
+        int         data_value_int;
+    };
+    std::vector<dBaseVariants> dynamics(200);
 
     struct expression_ast
     {
@@ -129,10 +128,7 @@ namespace dBaseParser
             , expression_ast const & right)
             : op(op)
             , left(left)
-            , right(right)
-        {
-            std::cout << "Math2: " << std::endl;
-        }
+            , right(right) { }
 
         char op;
         expression_ast left;
@@ -193,24 +189,28 @@ namespace dBaseParser
     expression_ast& expression_ast::operator += (expression_ast const& rhs)
     {
         expr = binary_op('+', expr, rhs);
+        dast = expr;
         return *this;
     }
 
     expression_ast& expression_ast::operator -= (expression_ast const& rhs)
     {
         expr = binary_op('-', expr, rhs);
+        dast = expr;
         return *this;
     }
 
     expression_ast& expression_ast::operator *= (expression_ast const& rhs)
     {
         expr = binary_op('*', expr, rhs);
+        dast = expr;
         return *this;
     }
 
     expression_ast& expression_ast::operator /= (expression_ast const& rhs)
     {
         expr = binary_op('/', expr, rhs);
+        dast = expr;
         return *this;
     }
 
@@ -225,8 +225,8 @@ namespace dBaseParser
 
         expression_ast operator()(expression_ast & expr) const
         {
-            cout << "lllllllllllllllll\n";
-            return expression_ast(unary_op('-', expr));
+            dast = expression_ast(unary_op('-', expr));
+            return dast;
         }
     };
 
@@ -240,10 +240,16 @@ namespace dBaseParser
         typedef void result_type;
 
         void operator()(nil) const {
-            cout << "empty" << endl;
+            cout << "done." << endl;
+            dast.expr = nil();
         }
         void operator()(int n) const {
-          std::cout << "int value: " << n;
+            std::cout << n;
+            dast.expr  = n;
+
+            dynamics[0].data_name      = std::string("onnnn");
+            dynamics[0].data_type      = i_value;
+            dynamics[0].data_value_int = int(n);
         }
 
 
@@ -253,22 +259,53 @@ namespace dBaseParser
                  << ast.expr.type().name()
                  << endl;
 
+            dast = ast;
             //if (!(ast.expr.type().name() == std::string("N11dBaseParser3nilE")))
             boost::apply_visitor(*this, ast.expr);
         }
 
         void operator()(binary_op const& expr) const
         {
-            std::cout << "op:" << expr.op << "(";
+            int lval, rval, value;
+
+            std::cout << "op" << expr.op << "(";
+            dast = expr.left;
             boost::apply_visitor(*this, expr.left.expr);
+            try {
+                lval = boost::get<int>(dast.expr);
+            }   catch (...) {
+                lval = dynamics[0].data_value_int;
+            }
+
+
             std::cout << ", ";
+            dast = expr.right;
             boost::apply_visitor(*this, expr.right.expr);
+            try {
+                rval = boost::get<int>(dast.expr);
+            }   catch (...) {
+                rval = dynamics[0].data_value_int;
+            }
+
             std::cout << ')';
+
+            switch (expr.op) {
+            case '+': value = lval + rval; break;
+            case '-': value = lval - rval; break;
+            case '*': value = lval * rval; break;
+            case '/': value = lval / rval; break;
+            }
+
+            dynamics[0].data_name      = std::string("onnnn");
+            dynamics[0].data_type      = i_value;
+            dynamics[0].data_value_int = value;
+
+            dast.expr = value;
         }
 
         void operator()(unary_op const& expr) const
         {
-            std::cout << "op:" << expr.op << "(";
+            std::cout << "oP" << expr.op << "(";
             boost::apply_visitor(*this, expr.subject.expr);
             std::cout << ')';
         }
@@ -408,7 +445,7 @@ namespace dBaseParser
                 ;
 
             factor =
-                +tok.number_digit               [ _val = qi::_1 ]
+                tok.number_digit                [ _val = qi::_1 ]
                 |  '('   >> expression          [ _val = qi::_1 ] >> ')'
                 |   ('-' >> factor              [ _val = neg(qi::_1)])
                 |   ('+' >> factor              [ _val = qi::_1 ] )
@@ -424,18 +461,7 @@ namespace dBaseParser
             h_expression
                 = (tok.identifier   >> *comments
                 >> tok.my_assign    >> *comments
-                >> tok.number_digit >> *comments
-                   [
-                     //_val = dast.add_number(
-                     //phx::construct<expression_ast>(qi::_1),
-                     //std::string("blub"))
-
-                     _val = qi::_1
-
-                     ///phx::construct<expression_ast>(qi::_1,
-                     ///std::string("exprrr"))
-
-                   ] )
+                >> expression                     [ _val = qi::_1 ])
                 ;
 
             comments
@@ -545,11 +571,23 @@ bool InitParseText(std::string text)
 bool parseText(QString text, int mode)
 {
     dBaseParser::ast_print  printer;
+    dBaseParser::dynamics.clear();
 
     if (InitParseText(text.toStdString())) {
         //std::cout << "SUCCESS" << std::endl;
         QMessageBox::information(w,"text parser","SUCCESS");
-        printer(dBaseParser::dast); } else {
+        printer(dBaseParser::dast);
+
+        int val = 0;
+        {
+            val = dBaseParser::dynamics[0].data_value_int;
+            w->ui->warningMemo->addItem(QString("--> %1")
+            .arg(val));
+        }
+
+        w->ui->warningMemo->addItem("-----");
+        //.arg(val));
+    } else {
         //std::cout << "ERROR" << std::endl;
         QMessageBox::information(w,"text parser","ERROR");
     }

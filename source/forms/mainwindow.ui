@@ -239,7 +239,7 @@ background: transparent;</string>
           <enum>Qt::RichText</enum>
          </property>
          <property name="pixmap">
-          <pixmap resource="icons.qrc">:/images/home.png</pixmap>
+          <pixmap resource="../dbase/icons.qrc">:/images/home.png</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -327,7 +327,7 @@ color: rgb(255, 255, 255);</string>
           <enum>Qt::RichText</enum>
          </property>
          <property name="pixmap">
-          <pixmap resource="icons.qrc">:/images/edit.png</pixmap>
+          <pixmap resource="../dbase/icons.qrc">:/images/edit.png</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -422,7 +422,7 @@ background: transparent;</string>
           <enum>Qt::RichText</enum>
          </property>
          <property name="pixmap">
-          <pixmap resource="icons.qrc">:/images/design.png</pixmap>
+          <pixmap resource="../dbase/icons.qrc">:/images/design.png</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -517,7 +517,7 @@ background: transparent;</string>
           <enum>Qt::RichText</enum>
          </property>
          <property name="pixmap">
-          <pixmap resource="icons.qrc">:/images/help.png</pixmap>
+          <pixmap resource="../dbase/icons.qrc">:/images/help.png</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -628,7 +628,7 @@ background: transparent;</string>
           <enum>Qt::RichText</enum>
          </property>
          <property name="pixmap">
-          <pixmap resource="icons.qrc">:/images/play.png</pixmap>
+          <pixmap resource="../dbase/icons.qrc">:/images/play.png</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -1196,7 +1196,7 @@ background: transparent;</string>
   </customwidget>
  </customwidgets>
  <resources>
-  <include location="icons.qrc"/>
+  <include location="../dbase/icons.qrc"/>
  </resources>
  <connections/>
  <slots>

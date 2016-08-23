@@ -46,6 +46,7 @@ QMAKE_CXXFLAGS += -H \
 
 INCLUDEPATH += \
         /usr/include \
+        $${TOPDIR}/.uic \
         $${SRCDIR}/ \
         $${SRCDIR}/includes
 
@@ -67,28 +68,6 @@ SOURCES += \
         \
         $${SRCDIR}/parser/dbase/yymain.cc \
         \
-        $${SRCDIR}/asmjit/base/assembler.cpp \
-        $${SRCDIR}/asmjit/base/compiler.cpp \
-        $${SRCDIR}/asmjit/base/compilercontext.cpp \
-        $${SRCDIR}/asmjit/base/constpool.cpp \
-        $${SRCDIR}/asmjit/base/containers.cpp \
-        $${SRCDIR}/asmjit/base/cpuinfo.cpp \
-        $${SRCDIR}/asmjit/base/globals.cpp \
-        $${SRCDIR}/asmjit/base/hlstream.cpp \
-        $${SRCDIR}/asmjit/base/logger.cpp \
-        $${SRCDIR}/asmjit/base/operand.cpp \
-        $${SRCDIR}/asmjit/base/podvector.cpp \
-        $${SRCDIR}/asmjit/base/runtime.cpp \
-        $${SRCDIR}/asmjit/base/utils.cpp \
-        $${SRCDIR}/asmjit/base/vmem.cpp \
-        $${SRCDIR}/asmjit/base/zone.cpp \
-        $${SRCDIR}/asmjit/x86/x86assembler.cpp \
-        $${SRCDIR}/asmjit/x86/x86compiler.cpp \
-        $${SRCDIR}/asmjit/x86/x86compilercontext.cpp \
-        $${SRCDIR}/asmjit/x86/x86compilerfunc.cpp \
-        $${SRCDIR}/asmjit/x86/x86inst.cpp \
-        $${SRCDIR}/asmjit/x86/x86operand.cpp \
-        $${SRCDIR}/asmjit/x86/x86operand_regs.cpp \
     source/dbase/settings_dialog.cc \
     source/dbase/update_dbase.cc \
     source/parser/rfc/rfc_update_dbase.cc \
@@ -113,37 +92,6 @@ HEADERS += \
         $${HDRDIR}/click.h \
         $${HDRDIR}/keypress.h \
         \
-        $${SRCDIR}/asmjit/base/assembler.h \
-        $${SRCDIR}/asmjit/base/compiler.h \
-        $${SRCDIR}/asmjit/base/compilercontext_p.h \
-        $${SRCDIR}/asmjit/base/compilerfunc.h \
-        $${SRCDIR}/asmjit/base/constpool.h \
-        $${SRCDIR}/asmjit/base/containers.h \
-        $${SRCDIR}/asmjit/base/cpuinfo.h \
-        $${SRCDIR}/asmjit/base/globals.h \
-        $${SRCDIR}/asmjit/base/hlstream.h \
-        $${SRCDIR}/asmjit/base/logger.h \
-        $${SRCDIR}/asmjit/base/operand.h \
-        $${SRCDIR}/asmjit/base/podvector.h \
-        $${SRCDIR}/asmjit/base/runtime.h \
-        $${SRCDIR}/asmjit/base/utils.h \
-        $${SRCDIR}/asmjit/base/vectypes.h \
-        $${SRCDIR}/asmjit/base/vmem.h \
-        $${SRCDIR}/asmjit/base/zone.h \
-        $${SRCDIR}/asmjit/x86/x86assembler.h \
-        $${SRCDIR}/asmjit/x86/x86compiler.h \
-        $${SRCDIR}/asmjit/x86/x86compilercontext_p.h \
-        $${SRCDIR}/asmjit/x86/x86compilerfunc.h \
-        $${SRCDIR}/asmjit/x86/x86inst.h \
-        $${SRCDIR}/asmjit/x86/x86operand.h \
-        $${SRCDIR}/asmjit/apibegin.h \
-        $${SRCDIR}/asmjit/apiend.h \
-        $${SRCDIR}/asmjit/arm.h \
-        $${SRCDIR}/asmjit/asmjit.h \
-        $${SRCDIR}/asmjit/base.h \
-        $${SRCDIR}/asmjit/build.h \
-        $${SRCDIR}/asmjit/host.h \
-        $${SRCDIR}/asmjit/x86.h \
         \
         $${HDRDIR}/settings_dialog.h \
         $${HDRDIR}/update_dbase.h \
@@ -155,7 +103,8 @@ FORMS   += \
         $${SRCDIR}/forms/update_dbase.ui
 
 RESOURCES += \
-        $${SRCDIR}/dbase/icons.qrc
+        $${SRCDIR}/dbase/icons.qrc \
+    source/dbase/icons.qrc
 
 DISTFILES += \
         $${SRCDIR}/helper/help.qhp \
@@ -169,4 +118,4 @@ DISTFILES += \
     source/serverfiles/users.php
 
 LIBS += -L"/usr/local/lib64" -lstdc++
-LIBS += -L"/media/sdb1/dbase/compiler" -lmod_dbase
+LIBS += -L"/dbase" -lmod_dbase

@@ -1,5 +1,3 @@
-#include "../../../prech.h"
-
 #include "includes/mainwindow.h"
 
 #define BOOST_SPIRIT_USE_PHOENIX_V3
