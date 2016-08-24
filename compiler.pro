@@ -38,7 +38,7 @@ QMAKE_CXXFLAGS += -H \
         -Wunused-function \
         -Woverloaded-virtual -fpermissive \
         -ftemplate-depth=200 \
-        -frtti -fexceptions  -std=c++14 \
+        -frtti -fexceptions  -std=c++17 \
         -I$${TOPDIR}. -I$${SRCDIR} -I$${SRCDIR}/includes \
         -D__BYTE_ORDER=__LITTLE_ENDIAN \
         -DQT_DEPRECATED \

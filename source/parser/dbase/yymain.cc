@@ -172,6 +172,11 @@ namespace dBaseParser
 
         expression_ast() : expr(nil()) { }
 
+        expression_ast(int dummy) {
+            cout << "trower" << endl;
+            throw dBaseMissException;
+        }
+
         template <typename Expr>
         expression_ast(Expr const & expr)
             : expr(expr) { }
@@ -410,7 +415,7 @@ namespace dBaseParser
         lex::token_def<lex::omit> kw_of;
         lex::token_def<lex::omit> kw_endclass;
 
-        lex::token_def<std::string> miss_1;
+        lex::token_def<lex::omit> miss_1;
         lex::token_def<char> my_mul;
 
         // --------------------------
@@ -522,7 +527,7 @@ namespace dBaseParser
                 factor                          [ _val  = qi::_1]
                 >> *(   (tok.my_mul >> skip(space)[
                          tok.my_mul
-                        ]                       [lex::_pass = lex::pass_flags::pass_fail ])
+                        ]                       [ _val  = phx::construct<expression_ast>(2) ])
                     |   (tok.my_mul >> factor   [ _val *= qi::_1])
                     |   ('/' >> factor          [ _val /= qi::_1])
                     )
@@ -536,7 +541,7 @@ namespace dBaseParser
                 ;
 
             symsbols
-                    = tok.miss_1
+                = tok.miss_1 [ _val = phx::construct<expression_ast>(1) ]
                 | printLn
                 | comments
   //              | class_definition
