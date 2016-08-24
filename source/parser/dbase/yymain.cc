@@ -79,6 +79,8 @@ namespace dBaseParser
         }
     };
 
+    QVector <QString> vec_push;
+
     // -----------------
     // AST for dBase ...
     // -----------------
@@ -196,8 +198,17 @@ namespace dBaseParser
             , std::string const& str1
             , std::string const& str2)
     {
-        expr = class_op(oper, str1, str2, *this);
-        dast = expr;
+        QString str = oper.c_str();
+        QString val = str1.c_str();
+
+        if (str.contains("@this")){
+            cout << str1 << endl;
+            vec_push << val;
+        }
+        else {
+            expr = class_op(oper, str1, str2, *this);
+            dast = expr;
+        }
     }
 
     expression_ast& expression_ast::operator += (expression_ast const& rhs)
@@ -335,7 +346,6 @@ namespace dBaseParser
             if (str.contains("form")) {
                 QMyMainWindow *wid = new QMyMainWindow;
             }
-            //boost::apply_visitor(*this, expr.class_owner);
         }
     };
 
@@ -353,6 +363,8 @@ namespace dBaseParser
         lex::token_def<lex::omit> kw_class;
         lex::token_def<lex::omit> kw_of;
         lex::token_def<lex::omit> kw_endclass;
+
+        lex::token_def<lex::omit> kw_this;
 
         // --------------------------
         // tokens with attributes ...
@@ -372,6 +384,8 @@ namespace dBaseParser
             kw_class        = "(?i:class)";
             kw_endclass     = "(?i:endclass)";
             kw_of           = "(?i:of)";
+
+            kw_this         = "(?i:this)";
 
             printLn   = "\\\?";
 
@@ -397,7 +411,7 @@ namespace dBaseParser
                 printLn
                 ;
             this->self +=
-                kw_class | kw_of | kw_endclass
+                kw_class | kw_of | kw_endclass | kw_this
                 ;
             this->self +=
                   identifier
@@ -525,7 +539,13 @@ namespace dBaseParser
                     ]
                 ;
             class_body
-                = *comments
+                = tok.kw_this
+                >> *('.' >> tok.identifier  [
+                        qi::_val = phx::construct<expression_ast>(
+                        phx::construct<std::string>("@this"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(""))
+                    ] )
                 ;
 
             start.name("start");
