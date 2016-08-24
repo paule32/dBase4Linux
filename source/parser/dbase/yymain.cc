@@ -1,5 +1,4 @@
 #ifdef QT_CORE_LIB
-#include "includes/mainwindow.h"
 #include "qmymainwindow.h"
 #endif
 
@@ -79,8 +78,6 @@ namespace dBaseParser
         }
     };
 
-    QVector <QString> vec_push;
-
     // -----------------
     // AST for dBase ...
     // -----------------
@@ -92,19 +89,43 @@ namespace dBaseParser
 
     enum dBaseTypes {
         unknown,
+        w_value,        // widget type
         m_value,
         c_value,
         i_value         // int type
     };
     dBaseTypes dBaseType;
-    class dBaseVariants
+    class dBaseVariables
     {
     public:
-        std::string data_name;
-        dBaseTypes  data_type;
-        int         data_value_int;
+        QString          data_name;
+        QString          data_name_parent;
+        dBaseTypes       data_type;
+        int              data_value_int;
+        QMyMainWindow *  data_value_widget;
     };
-    std::vector<dBaseVariants> dynamics(200);
+    QVector <dBaseVariables*> dynamics;
+    QVector <QString>         vec_push;
+
+    int getVariable(QString name)
+    {
+        bool found = false;
+        int  idx = 0;
+        if (dynamics.size() > -1)
+        for (idx = 0;idx < dynamics.size(); idx++) {
+            if (dynamics[idx]->data_name == name) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            dBaseVariables *t = new
+            dBaseVariables;
+
+            t->data_name  = name;
+            dynamics.append( t );
+        }   return idx;
+    }
 
     struct expression_ast
     {
@@ -184,7 +205,27 @@ namespace dBaseParser
             : oper(oper)
             , class_cname(cname)
             , class_oname(oname)
-            , class_owner(co)  { }
+            , class_owner(co)
+        {
+            QString str = class_oname.c_str();
+            QString ori = class_cname.c_str();
+
+            if (str.contains("form"))
+            {
+                if (getVariable(ori) < 1) {
+                    dBaseVariables *v    = new dBaseVariables;
+                    v->data_name         = ori;
+                    v->data_type         = w_value;
+                    v->data_value_widget = new QMyMainWindow;
+                    dynamics[getVariable(ori)] = v;
+                }   else {
+                    int o = getVariable(ori); delete
+                    dynamics[o]->data_value_widget;
+                    dynamics[o]->data_type = w_value;
+                    dynamics[o]->data_value_widget = new QMyMainWindow;
+                }
+            }
+        }
 
         std::string oper;
         std::string class_cname;
@@ -206,7 +247,7 @@ namespace dBaseParser
             vec_push << val;
         }
         else {
-            expr = class_op(oper, str1, str2, *this);
+            expr = expression_ast(class_op(oper, str1, str2, *this));
             dast = expr;
         }
     }
@@ -272,21 +313,27 @@ namespace dBaseParser
             std::cout << n;
             dast.expr  = n;
 
-            dynamics[0].data_name      = std::string("onnnn");
-            dynamics[0].data_type      = i_value;
-            dynamics[0].data_value_int = int(n);
+            if (int c = getVariable("onnn") < 1) {
+                dBaseVariables *v = new dBaseVariables;
+                v->data_name      = "onnn" ;
+                v->data_type      = i_value;
+                v->data_value_int = int(n) ;
+                dynamics[c]  = v; }   else {
+                dynamics[c]->data_type      = i_value;
+                dynamics[c]->data_value_int = int(n);
+            }
         }
 
 
         void operator()(expression_ast const& ast) const
         {
-            cout << "-> "
+            cout << "---> "
                  << ast.expr.type().name()
                  << endl;
 
             dast = ast;
             //if (!(ast.expr.type().name() == std::string("N11dBaseParser3nilE")))
-            boost::apply_visitor(*this, ast.expr);
+            //boost::apply_visitor(*this, ast.expr);
         }
 
         void operator()(binary_op const& expr) const
@@ -299,7 +346,7 @@ namespace dBaseParser
             try {
                 lval = boost::get<int>(dast.expr);
             }   catch (...) {
-                lval = dynamics[0].data_value_int;
+                lval = dynamics[0]->data_value_int;
             }
 
 
@@ -309,22 +356,31 @@ namespace dBaseParser
             try {
                 rval = boost::get<int>(dast.expr);
             }   catch (...) {
-                rval = dynamics[0].data_value_int;
+                rval = dynamics[0]->data_value_int;
             }
 
             std::cout << ')';
 
             switch (expr.op) {
-            case '+': value = lval + rval; break;
-            case '-': value = lval - rval; break;
-            case '*': value = lval * rval; break;
-            case '/': value = lval / rval; break;
+                case '+': value = lval + rval; break;
+                case '-': value = lval - rval; break;
+                case '*': value = lval * rval; break;
+                case '/': value = lval / rval; break;
             }
 
-            dynamics[0].data_name      = std::string("onnnn");
-            dynamics[0].data_type      = i_value;
-            dynamics[0].data_value_int = value;
-
+            cout << "1111111111" << endl;
+            if (int c = getVariable("onnn") < 1) {
+                cout << "2222222222222" << endl;
+                dBaseVariables *v = new dBaseVariables;
+                v->data_name      = "onnn" ;
+                v->data_type      = i_value;
+                v->data_value_int = value;
+                dynamics[c] = v; }    else {
+                cout << "333333333" << endl;
+                dynamics[c]->data_type      = i_value;
+                dynamics[c]->data_value_int = value;
+            }
+cout << "4444444" << endl;
             dast.expr = value;
         }
 
@@ -337,15 +393,11 @@ namespace dBaseParser
 
         void operator()(class_op const& expr) const
         {
-            std::cout << "class:"
-                      << expr.class_cname << ":"
-                      << expr.class_oname
-                      << "(null)"
-                      << std::endl;
-            QString str = expr.class_oname.c_str();
-            if (str.contains("form")) {
-                QMyMainWindow *wid = new QMyMainWindow;
-            }
+            cout << "000000000000000000000000000000" << endl;
+
+
+            cout << "############################" << endl;
+            //boost::apply_visitor(*this, expr.class_owner);
         }
     };
 
@@ -468,25 +520,26 @@ namespace dBaseParser
             expression =
                 term                            [ _val  = qi::_1 ]
                 >> *(
-                        (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> term    [ phx::construct<expression_ast>(1,2,3) ])
-                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
-                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
+                    (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> term    [ phx::construct<expression_ast>(1,2,3) ])
+                |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
+                |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
 
-                    |   ('+' >> term            [ _val += qi::_1 ])
-                    |   ('-' >> term            [ _val -= qi::_1 ])
+                |   ('+' >> term            [ _val += qi::_1 ])
+                |   ('-' >> term            [ _val -= qi::_1 ])
+
                     )
                 ;
 
             term =
                 factor                                     [ _val  = qi::_1]
                 >> *(
-                        (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> factor  [ phx::construct<expression_ast>(1,2,3) ])
-                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
-                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
+                    (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> factor  [ phx::construct<expression_ast>(1,2,3) ])
+                |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
+                |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
 
-                    |   ('*' >> factor                     [ _val *= qi::_1])
-                    |   ('/' >> factor                     [ _val /= qi::_1])
-                    )
+                |   ('*' >> factor                     [ _val *= qi::_1])
+                |   ('/' >> factor                     [ _val /= qi::_1])
+                )
                 ;
 
             factor =
@@ -526,20 +579,21 @@ namespace dBaseParser
                 ;
 
             class_definition
-                =   (  tok.kw_class
-                    >> tok.identifier
-                    >> tok.kw_of
-                    >> tok.identifier    >> class_body
-                    >> tok.kw_endclass)
-                    [
-                        qi::_val = phx::construct<expression_ast>(
-                        phx::construct<std::string>("create class"),
-                        phx::construct<std::string>(qi::_1),
-                        phx::construct<std::string>(qi::_2))
-                    ]
+            =   (  tok.kw_class
+                >> tok.identifier
+                >> tok.kw_of
+                >> tok.identifier    >> class_body
+                >> tok.kw_endclass)
+                [
+                    qi::_val = phx::construct<expression_ast>(
+                    phx::construct<std::string>("create class"),
+                    phx::construct<std::string>(qi::_1),
+                    phx::construct<std::string>(qi::_2))
+                ]
                 ;
             class_body
-                = tok.kw_this
+                =  *comments
+                   | tok.kw_this
                 >> *('.' >> tok.identifier  [
                         qi::_val = phx::construct<expression_ast>(
                         phx::construct<std::string>("@this"),
@@ -596,11 +650,7 @@ bool InitParseText(std::string text)
     std::string data = text;
     //std::string data(text.toStdString().c_str());
     if (data.size() < 1) {
-#ifndef QT_CORE_LIB
-        //std::cerr << "no data for parser" << std::endl;
-#else
         QMessageBox::information(0,"Error","No Data for parser.\nABORT.");
-#endif
         return false;
     }
 
@@ -627,52 +677,33 @@ bool InitParseText(std::string text)
     return qi::parse(iter, end, dbase, ast);
 }
 
-#ifndef QT_CORE_LIB
-bool parseText(std::string text, int mode)
-#else
 bool parseText(QString text, int mode)
-#endif
 {
-    dBaseParser::ast_print  printer;
-    dBaseParser::dynamics.clear();
+    namespace dp = dBaseParser;
+
+    dp::ast_print  printer;
+    dp::dynamics.clear();
 
     try {
         if (InitParseText(text.toStdString())) {
-#ifndef QT_CORE_LIB
-            std::cout << "SUCCESS" << std::endl;
-#else
             QMessageBox::information(w,"text parser","SUCCESS");
-#endif
-            printer(dBaseParser::dast);
+            printer(dp::dast);
 
-            int val = 0;
+            w->hide();
+            for (int o = 0; o <= dp::dynamics.size(); o++)
             {
-                val = dBaseParser::dynamics[0].data_value_int;
-
-#ifndef QT_CORE_LIB
-                cout << val;
-#else
-                w->ui->warningMemo->addItem(QString("--> %1")
-                .arg(val));
-#endif
+                if (dp::dynamics[o]->data_type == dp::dBaseTypes::w_value) {
+                if (dp::dynamics[o]->data_value_widget != nullptr)
+                    dp::dynamics[o]->data_value_widget->showModal();
+                }
             }
-
-            //w->ui->warningMemo->addItem("-----");
-            //.arg(val));
-        } else {
-#ifndef QT_CORE_LIB
-            std::cout << "ERROR" << std::endl;
-#else
+            w->show();
+        }   else {
             QMessageBox::information(w,"text parser","ERROR");
-#endif
         }
     }
     catch (exception& e) {
-#ifndef QT_CORE_LIB
-        cout << "error: " << e.what() << endl;
-#else
         QMessageBox::information(w,"parser error",e.what());
-#endif
     }
 
     return 0;

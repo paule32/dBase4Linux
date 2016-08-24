@@ -957,15 +957,30 @@ background: transparent;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>811</width>
+             <width>821</width>
              <height>791</height>
             </rect>
            </property>
            <property name="mouseTracking">
             <bool>true</bool>
            </property>
+           <property name="autoFillBackground">
+            <bool>false</bool>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 232, 232);</string>
+           </property>
+           <property name="verticalScrollBarPolicy">
+            <enum>Qt::ScrollBarAlwaysOn</enum>
+           </property>
+           <property name="horizontalScrollBarPolicy">
+            <enum>Qt::ScrollBarAlwaysOn</enum>
+           </property>
            <property name="sizeAdjustPolicy">
             <enum>QAbstractScrollArea::AdjustToContents</enum>
+           </property>
+           <property name="renderHints">
+            <set>QPainter::Antialiasing|QPainter::TextAntialiasing</set>
            </property>
            <property name="dragMode">
             <enum>QGraphicsView::RubberBandDrag</enum>

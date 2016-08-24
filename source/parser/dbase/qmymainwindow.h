@@ -4,13 +4,14 @@
 #include <QObject>
 #include <QWidget>
 #include <QEventLoop>
+#include "includes/mainwindow.h"
 
 class QMyMainWindow : public QWidget
 {
     Q_OBJECT
 public:
     explicit QMyMainWindow(QWidget *parent = 0);
-
+    void showModal();
 signals:
 
 public slots:
