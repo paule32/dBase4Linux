@@ -1,4 +1,27 @@
 /*
+using g++ 5.4.0
+
+#/bin/sh
+g++ -c -pipe -H \
+-Wno-unused-parameter \
+-Wno-unused-variable \
+-Wno-unused-local-typedefs \
+-Wno-unused-but-set-variable \
+-Wno-write-strings \
+-Wno-extra \
+-Wno-reorder \
+-Wunused-function \
+-Woverloaded-virtual \
+-fpermissive \
+-ftemplate-depth=200 -frtti -fexceptions -std=c++17 \
+-D__BYTE_ORDER=__LITTLE_ENDIAN -D_REENTRANT -fPIC \
+-DBUILDTIME=\"14:43:09\" -DBUILDDATE=\"2016-08-22\" \
+-I. \
+-I/usr/include \
+\
+-o yymain.o yymain.cc
+
+------------------------------------
 
     term =
     factor                          [ _val  = qi::_1]
