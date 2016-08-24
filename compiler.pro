@@ -71,7 +71,8 @@ SOURCES += \
     source/dbase/settings_dialog.cc \
     source/dbase/update_dbase.cc \
     source/parser/rfc/rfc_update_dbase.cc \
-    source/dbase/update_thread.cc
+    source/dbase/update_thread.cc \
+    source/parser/dbase/qmymainwindow.cc
 
 HEADERS += \
 	$${HDRDIR}/mainwindow.h \
@@ -95,7 +96,8 @@ HEADERS += \
         \
         $${HDRDIR}/settings_dialog.h \
         $${HDRDIR}/update_dbase.h \
-        $${HDRDIR}/update_thread.h
+        $${HDRDIR}/update_thread.h \
+    source/parser/dbase/qmymainwindow.h
 
 FORMS   += \
         $${SRCDIR}/forms/mainwindow.ui \

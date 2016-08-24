@@ -1,61 +1,6 @@
-/*
-using g++ 5.4.0
-
-#/bin/sh
-g++ -c -pipe -H \
--Wno-unused-parameter \
--Wno-unused-variable \
--Wno-unused-local-typedefs \
--Wno-unused-but-set-variable \
--Wno-write-strings \
--Wno-extra \
--Wno-reorder \
--Wunused-function \
--Woverloaded-virtual \
--fpermissive \
--ftemplate-depth=200 -frtti -fexceptions -std=c++17 \
--D__BYTE_ORDER=__LITTLE_ENDIAN -D_REENTRANT -fPIC \
--DBUILDTIME=\"14:43:09\" -DBUILDDATE=\"2016-08-22\" \
--I. \
--I/usr/include \
-\
--o yymain.o yymain.cc
-
-------------------------------------
-
-    term =
-    factor                          [ _val  = qi::_1]
-    >> *(   (tok.my_mul >> skip(space)[
-             tok.my_mul
-            ]                       [lex::_pass = lex::pass_flags::pass_fail ])    // <--- here
-        |   (tok.my_mul >> factor   [ _val *= qi::_1])
-        |   ('/' >> factor          [ _val /= qi::_1])
-        )
-    ;
-
-
-/usr/include/boost/proto/transform/default.hpp:154: Fehler: cannot convert 'const boost::spirit::lex::pass_flags' to 'bool' in assignment
-BOOST_PROTO_BINARY_DEFAULT_EVAL(=, assign, make_mutable, make)
-^
-
-/usr/include/boost/proto/transform/default.hpp:154: Fehler: cannot convert 'const boost::spirit::lex::pass_flags' to 'bool' in assignment
-
-/usr/include/boost/spirit/home/support/action_dispatch.hpp:178: Fehler: no match for call to '(const boost::phoenix::actor<boost::proto::exprns_::expr<boost::proto::tagns_::tag::assign, boost::proto::argsns_::list2<boost::proto::exprns_::basic_expr<boost::proto::tagns_::tag::terminal, boost::proto::argsns_::term<boost::phoenix::argument<3> >, 0l>, boost::phoenix::actor<boost::proto::exprns_::expr<boost::proto::tagns_::tag::terminal, boost::proto::argsns_::term<boost::spirit::lex::pass_flags>, 0l> > >, 2l> >) (boost::spirit::traits::pass_attribute<boost::spirit::qi::skip_parser<boost::spirit::lex::reference<const boost::spirit::lex::token_def<char>, long unsigned int>, boost::spirit::qi::char_class<boost::spirit::tag::char_code<boost::spirit::tag::space, boost::spirit::char_encoding::ascii> > >, char, void>::type&, boost::spirit::context<boost::fusion::cons<dBaseParser::expression_ast&, boost::fusion::nil>, boost::fusion::vector0<> >&, bool&)'
- f(attr_wrap, context, pass);
-  ^
-
-/usr/include/boost/type_traits/make_unsigned.hpp:38: Fehler: static assertion failed: (::boost::type_traits::ice_or< ::boost::is_integral<T>::value, ::boost::is_enum<T>::value>::value)
-BOOST_STATIC_ASSERT(
-^
-
-/usr/include/boost/type_traits/make_signed.hpp:38: Fehler: static assertion failed: (::boost::type_traits::ice_or< ::boost::is_integral<T>::value, ::boost::is_enum<T>::value>::value)
-BOOST_STATIC_ASSERT(
-^
-*/
-
-
 #ifdef QT_CORE_LIB
 #include "includes/mainwindow.h"
+#include "qmymainwindow.h"
 #endif
 
 #define BOOST_SPIRIT_USE_PHOENIX_V3
@@ -127,6 +72,13 @@ namespace dBaseParser
         }
     } dBaseMissException;
 
+    struct my_dbase_throw {
+        my_dbase_throw() { }
+        my_dbase_throw(int dummy) {
+            throw dBaseMissException;
+        }
+    };
+
     // -----------------
     // AST for dBase ...
     // -----------------
@@ -134,7 +86,7 @@ namespace dBaseParser
     struct unary_op;
     struct nil { };
     //struct dBaseExpression;
-    //struct class_op;
+    struct class_op;
 
     enum dBaseTypes {
         unknown,
@@ -164,7 +116,7 @@ namespace dBaseParser
             , boost::recursive_wrapper<expression_ast>
             , boost::recursive_wrapper<binary_op>
             , boost::recursive_wrapper<unary_op>
-           // , boost::recursive_wrapper<class_op>
+            , boost::recursive_wrapper<class_op>
            // , boost::recursive_wrapper<dBaseExpression>
         >
         type;
@@ -172,7 +124,7 @@ namespace dBaseParser
 
         expression_ast() : expr(nil()) { }
 
-        expression_ast(int dummy) {
+        expression_ast(int dummy1, int dummy2, int dummy3) {
             cout << "trower" << endl;
             throw dBaseMissException;
         }
@@ -181,14 +133,11 @@ namespace dBaseParser
         expression_ast(Expr const & expr)
             : expr(expr) { }
 
-        /*
         expression_ast(
-                  std::string const& name
-                , std::string const& str1
-                , std::string const& str2
-                , expression_ast const& rhs);
+              std::string const& oper
+            , std::string const& str1
+            , std::string const& str2);
 
-        expression_ast(expression_ast const & rhs, std::string const & name); */
 
         expression_ast& operator += (expression_ast const & rhs);
         expression_ast& operator -= (expression_ast const & rhs);
@@ -223,47 +172,34 @@ namespace dBaseParser
         expression_ast subject;
     };
 
-    /*
     struct class_op
     {
         class_op(
-              std::string const& op
+              std::string const& oper
             , std::string const& cname
             , std::string const& oname
-            , expression_ast const& left
-            , expression_ast const& right)
-            : op(op)
+            , expression_ast const& co)
+            : oper(oper)
             , class_cname(cname)
             , class_oname(oname)
-            , left(left)
-            , right(right) { }
+            , class_owner(co)  { }
 
-        std::string op;
+        std::string oper;
         std::string class_cname;
         std::string class_oname;
 
-        expression_ast left;
-        expression_ast right;
-    };*/
-
-/*
-    expression_ast::expression_ast(expression_ast const & rhs, std::string const & name)
-    {
-        cout << "dinit" << endl;
-        cout << name << endl;
-        cout << rhs.expr.type().name() << endl;
-
-        expr = rhs;
-    }
+        expression_ast class_owner;
+    };
 
     expression_ast::expression_ast  (
-              std::string const& name
+              std::string const& oper
             , std::string const& str1
-            , std::string const& str2, expression_ast const& rhs)
+            , std::string const& str2)
     {
-        expr = class_op(name, str1, str2, *this, rhs);
+        expr = class_op(oper, str1, str2, *this);
+        dast = expr;
     }
-*/
+
     expression_ast& expression_ast::operator += (expression_ast const& rhs)
     {
         expr = binary_op('+', expr, rhs);
@@ -388,7 +324,6 @@ namespace dBaseParser
             std::cout << ')';
         }
 
-        /*
         void operator()(class_op const& expr) const
         {
             std::cout << "class:"
@@ -396,8 +331,12 @@ namespace dBaseParser
                       << expr.class_oname
                       << "(null)"
                       << std::endl;
-            boost::apply_visitor(*this, expr.left.expr);
-        }*/
+            QString str = expr.class_oname.c_str();
+            if (str.contains("form")) {
+                QMyMainWindow *wid = new QMyMainWindow;
+            }
+            //boost::apply_visitor(*this, expr.class_owner);
+        }
     };
 
     template <typename Lexer>
@@ -414,9 +353,6 @@ namespace dBaseParser
         lex::token_def<lex::omit> kw_class;
         lex::token_def<lex::omit> kw_of;
         lex::token_def<lex::omit> kw_endclass;
-
-        lex::token_def<lex::omit> miss_1;
-        lex::token_def<char> my_mul;
 
         // --------------------------
         // tokens with attributes ...
@@ -440,12 +376,9 @@ namespace dBaseParser
             printLn   = "\\\?";
 
             my_assign = "\\=";
-            my_mul    = "\\*";
-
-            miss_1 = "[0-9]*((\\*)([ \\t\\r\\n]+)(\\*))";
 
             // Values.
-            number_digit      = "[0-9]*";
+            number_digit      = "[0-9]+";
             quoted_string     = "\\\"(\\\\.|[^\\\"])*\\\"";
 
             // Identifier.
@@ -459,11 +392,9 @@ namespace dBaseParser
 
             this->self += lex::token_def<>
                     ('(') | ')'
-                    | '+' | '-'
-                    | '/'
-                    | ',' | '.';
+                    | '*' | '+' | '-' | '/' | ',' | '.';
             this->self +=
-                printLn | my_mul
+                printLn
                 ;
             this->self +=
                 kw_class | kw_of | kw_endclass
@@ -476,8 +407,7 @@ namespace dBaseParser
                 ;
 
             this->self +=
-                  miss_1     [ lex::_pass = lex::pass_flags::pass_fail ]
-                | whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
+                  whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | c_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | d_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
@@ -501,6 +431,11 @@ namespace dBaseParser
       out << "unary_op" << std::endl ;
       return out ;
     }
+    template<typename StreamT>
+    StreamT& operator<<(StreamT& out, class_op const& item) {
+      out << "class_op" << std::endl ;
+      return out ;
+    }
 
     template <typename Iterator, typename Lexer>
     struct dbase_grammar
@@ -518,40 +453,52 @@ namespace dBaseParser
 
             expression =
                 term                            [ _val  = qi::_1 ]
-                >> *(   ('+' >> term            [ _val += qi::_1 ])
+                >> *(
+                        (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> term    [ phx::construct<expression_ast>(1,2,3) ])
+                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
+                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
+
+                    |   ('+' >> term            [ _val += qi::_1 ])
                     |   ('-' >> term            [ _val -= qi::_1 ])
                     )
                 ;
 
             term =
-                factor                          [ _val  = qi::_1]
-                >> *(   (tok.my_mul >> skip(space)[
-                         tok.my_mul
-                        ]                       [ _val  = phx::construct<expression_ast>(2) ])
-                    |   (tok.my_mul >> factor   [ _val *= qi::_1])
-                    |   ('/' >> factor          [ _val /= qi::_1])
+                factor                                     [ _val  = qi::_1]
+                >> *(
+                        (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> factor  [ phx::construct<expression_ast>(1,2,3) ])
+                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
+                    |   (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
+
+                    |   ('*' >> factor                     [ _val *= qi::_1])
+                    |   ('/' >> factor                     [ _val /= qi::_1])
                     )
                 ;
 
             factor =
                 tok.number_digit                [ _val = qi::_1 ]
+
+                |   tok.number_digit >> (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> factor  [ phx::construct<expression_ast>(1,2,3) ])
+                |   tok.number_digit >> (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)")            [ phx::construct<expression_ast>(1,2,3) ])
+                |   tok.number_digit >> (char_("([\\+\\-\\*\\/]+)|([a-zA-Z]*)") >> eoi                                               [ phx::construct<expression_ast>(1,2,3) ])
+
                 |  '('   >> expression          [ _val = qi::_1 ] >> ')'
                 |   ('-' >> factor              [ _val = neg(qi::_1)])
                 |   ('+' >> factor              [ _val = qi::_1 ] )
                 ;
 
             symsbols
-                = tok.miss_1 [ _val = phx::construct<expression_ast>(1) ]
-                | printLn
+                =
+                 printLn
                 | comments
-  //              | class_definition
+                | class_definition
                 | h_expression
                 ;
 
             h_expression
                 = (tok.identifier
                 >> tok.my_assign
-                >> expression               [ _val = qi::_1 ] )
+                >> expression              [ _val = qi::_1 ] )
                 ;
 
             comments
@@ -564,15 +511,15 @@ namespace dBaseParser
                 = tok.printLn >> tok.quoted_string
                 ;
 
-                    /*
             class_definition
-                =   (  tok.kw_class      >> *comments
-                    >> tok.identifier    >> *comments
-                    >> tok.kw_of         >> *comments
-                    >> tok.identifier    >> *comments >> class_body
+                =   (  tok.kw_class
+                    >> tok.identifier
+                    >> tok.kw_of
+                    >> tok.identifier    >> class_body
                     >> tok.kw_endclass)
                     [
                         qi::_val = phx::construct<expression_ast>(
+                        phx::construct<std::string>("create class"),
                         phx::construct<std::string>(qi::_1),
                         phx::construct<std::string>(qi::_2))
                     ]
@@ -580,7 +527,6 @@ namespace dBaseParser
             class_body
                 = *comments
                 ;
-                        */
 
             start.name("start");
             symsbols.name("symsbols");
@@ -589,16 +535,16 @@ namespace dBaseParser
             term.name("term");
             factor.name("factor");
             printLn.name("printLn");
-//            class_definition.name("class_definition");
-//            class_body.name("class_body");
+            class_definition.name("class_definition");
+            class_body.name("class_body");
             h_expression.name("h_expression");
 
             BOOST_SPIRIT_DEBUG_NODE(start);
             BOOST_SPIRIT_DEBUG_NODE(symsbols);
             BOOST_SPIRIT_DEBUG_NODE(comments);
             BOOST_SPIRIT_DEBUG_NODE(printLn);
-//            BOOST_SPIRIT_DEBUG_NODE(class_definition);
-//            BOOST_SPIRIT_DEBUG_NODE(class_body);
+            BOOST_SPIRIT_DEBUG_NODE(class_definition);
+            BOOST_SPIRIT_DEBUG_NODE(class_body);
             BOOST_SPIRIT_DEBUG_NODE(factor);
             BOOST_SPIRIT_DEBUG_NODE(term);
             BOOST_SPIRIT_DEBUG_NODE(expression);
