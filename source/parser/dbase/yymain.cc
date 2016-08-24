@@ -13,6 +13,8 @@
 #include <boost/spirit/include/phoenix_operator.hpp>
 #include <boost/spirit/include/phoenix_container.hpp>
 #include <boost/spirit/include/phoenix_function.hpp>
+#include <boost/spirit/include/qi_eoi.hpp>
+#include <boost/spirit/include/qi_skip.hpp>
 #include <boost/spirit/include/karma.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/fusion/include/std_pair.hpp>
@@ -31,13 +33,14 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <exception>
 #include <typeinfo>
 #include <set>
 #include <utility>
 #include <vector>
 
 int lineno = 1;
-
+bool MissThrower = false;
 
 using namespace std;
 using namespace boost::spirit;
@@ -50,10 +53,24 @@ using boost::spirit::ascii::space; // use the ASCII space parser
 using boost::spirit::ascii::char_;
 using boost::spirit::_val;
 
+using boost::spirit::qi::skip;
+using boost::spirit::qi::eoi;
+
 using boost::phoenix::val;
 
 namespace dBaseParser
 {
+    // --------------------------------
+    // exception class for don't match
+    // -------------------------------
+    class MydBaseMissException: public exception
+    {
+        virtual const char* what() const throw()
+        {
+            return "dBaseException occur.";
+        }
+    } dBaseMissException;
+
     // -----------------
     // AST for dBase ...
     // -----------------
@@ -337,6 +354,9 @@ namespace dBaseParser
         lex::token_def<lex::omit> kw_of;
         lex::token_def<lex::omit> kw_endclass;
 
+        lex::token_def<std::string> miss_1;
+        lex::token_def<char> my_mul;
+
         // --------------------------
         // tokens with attributes ...
         // --------------------------
@@ -357,7 +377,11 @@ namespace dBaseParser
             kw_of           = "(?i:of)";
 
             printLn   = "\\\?";
+
             my_assign = "\\=";
+            my_mul    = "\\*";
+
+            miss_1 = "[0-9]*((\\*)([ \\t\\r\\n]+)(\\*))";
 
             // Values.
             number_digit      = "[0-9]*";
@@ -375,10 +399,10 @@ namespace dBaseParser
             this->self += lex::token_def<>
                     ('(') | ')'
                     | '+' | '-'
-                    | '*' | '/'
+                    | '/'
                     | ',' | '.';
             this->self +=
-                printLn
+                printLn | my_mul
                 ;
             this->self +=
                 kw_class | kw_of | kw_endclass
@@ -391,10 +415,11 @@ namespace dBaseParser
                 ;
 
             this->self +=
-                  whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
-                | cpcomment
-                | c_comment
-                | d_comment
+                  miss_1     [ lex::_pass = lex::pass_flags::pass_fail ]
+                | whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | c_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | d_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 ;
         }
     };
@@ -439,7 +464,10 @@ namespace dBaseParser
 
             term =
                 factor                          [ _val  = qi::_1]
-                >> *(   ('*' >> factor          [ _val *= qi::_1])
+                >> *(   (tok.my_mul >> skip(space)[
+                         tok.my_mul
+                        ]                       [lex::_pass = lex::pass_flags::pass_fail ])
+                    |   (tok.my_mul >> factor   [ _val *= qi::_1])
                     |   ('/' >> factor          [ _val /= qi::_1])
                     )
                 ;
@@ -452,16 +480,17 @@ namespace dBaseParser
                 ;
 
             symsbols
-                = printLn
+                    = tok.miss_1
+                | printLn
                 | comments
   //              | class_definition
                 | h_expression
                 ;
 
             h_expression
-                = (tok.identifier   >> *comments
-                >> tok.my_assign    >> *comments
-                >> expression                     [ _val = qi::_1 ])
+                = (tok.identifier
+                >> tok.my_assign
+                >> expression               [ _val = qi::_1 ] )
                 ;
 
             comments
@@ -471,8 +500,7 @@ namespace dBaseParser
                 ;
 
             printLn
-                = tok.printLn >> *comments >> tok.quoted_string
-                | tok.printLn >>              tok.quoted_string
+                = tok.printLn >> tok.quoted_string
                 ;
 
                     /*
@@ -531,7 +559,8 @@ namespace dBaseParser
         qi::rule<Iterator, expression_ast()>
              expression, term, factor
            , h_expression
-           , class_definition;
+           , class_definition
+           ;
     };
 }
 
@@ -573,23 +602,28 @@ bool parseText(QString text, int mode)
     dBaseParser::ast_print  printer;
     dBaseParser::dynamics.clear();
 
-    if (InitParseText(text.toStdString())) {
-        //std::cout << "SUCCESS" << std::endl;
-        QMessageBox::information(w,"text parser","SUCCESS");
-        printer(dBaseParser::dast);
+    try {
+        if (InitParseText(text.toStdString())) {
+            //std::cout << "SUCCESS" << std::endl;
+            QMessageBox::information(w,"text parser","SUCCESS");
+            printer(dBaseParser::dast);
 
-        int val = 0;
-        {
-            val = dBaseParser::dynamics[0].data_value_int;
-            w->ui->warningMemo->addItem(QString("--> %1")
-            .arg(val));
+            int val = 0;
+            {
+                val = dBaseParser::dynamics[0].data_value_int;
+                w->ui->warningMemo->addItem(QString("--> %1")
+                .arg(val));
+            }
+
+            w->ui->warningMemo->addItem("-----");
+            //.arg(val));
+        } else {
+            //std::cout << "ERROR" << std::endl;
+            QMessageBox::information(w,"text parser","ERROR");
         }
-
-        w->ui->warningMemo->addItem("-----");
-        //.arg(val));
-    } else {
-        //std::cout << "ERROR" << std::endl;
-        QMessageBox::information(w,"text parser","ERROR");
+    }
+    catch (exception& e) {
+        QMessageBox::information(w,"parser error",e.what());
     }
 
     return 0;
