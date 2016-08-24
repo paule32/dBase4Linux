@@ -1,6 +1,39 @@
-//#include "../../../prech.h"
+/*
 
+    term =
+    factor                          [ _val  = qi::_1]
+    >> *(   (tok.my_mul >> skip(space)[
+             tok.my_mul
+            ]                       [lex::_pass = lex::pass_flags::pass_fail ])    // <--- here
+        |   (tok.my_mul >> factor   [ _val *= qi::_1])
+        |   ('/' >> factor          [ _val /= qi::_1])
+        )
+    ;
+
+
+/usr/include/boost/proto/transform/default.hpp:154: Fehler: cannot convert 'const boost::spirit::lex::pass_flags' to 'bool' in assignment
+BOOST_PROTO_BINARY_DEFAULT_EVAL(=, assign, make_mutable, make)
+^
+
+/usr/include/boost/proto/transform/default.hpp:154: Fehler: cannot convert 'const boost::spirit::lex::pass_flags' to 'bool' in assignment
+
+/usr/include/boost/spirit/home/support/action_dispatch.hpp:178: Fehler: no match for call to '(const boost::phoenix::actor<boost::proto::exprns_::expr<boost::proto::tagns_::tag::assign, boost::proto::argsns_::list2<boost::proto::exprns_::basic_expr<boost::proto::tagns_::tag::terminal, boost::proto::argsns_::term<boost::phoenix::argument<3> >, 0l>, boost::phoenix::actor<boost::proto::exprns_::expr<boost::proto::tagns_::tag::terminal, boost::proto::argsns_::term<boost::spirit::lex::pass_flags>, 0l> > >, 2l> >) (boost::spirit::traits::pass_attribute<boost::spirit::qi::skip_parser<boost::spirit::lex::reference<const boost::spirit::lex::token_def<char>, long unsigned int>, boost::spirit::qi::char_class<boost::spirit::tag::char_code<boost::spirit::tag::space, boost::spirit::char_encoding::ascii> > >, char, void>::type&, boost::spirit::context<boost::fusion::cons<dBaseParser::expression_ast&, boost::fusion::nil>, boost::fusion::vector0<> >&, bool&)'
+ f(attr_wrap, context, pass);
+  ^
+
+/usr/include/boost/type_traits/make_unsigned.hpp:38: Fehler: static assertion failed: (::boost::type_traits::ice_or< ::boost::is_integral<T>::value, ::boost::is_enum<T>::value>::value)
+BOOST_STATIC_ASSERT(
+^
+
+/usr/include/boost/type_traits/make_signed.hpp:38: Fehler: static assertion failed: (::boost::type_traits::ice_or< ::boost::is_integral<T>::value, ::boost::is_enum<T>::value>::value)
+BOOST_STATIC_ASSERT(
+^
+*/
+
+
+#ifdef QT_CORE_LIB
 #include "includes/mainwindow.h"
+#endif
 
 #define BOOST_SPIRIT_USE_PHOENIX_V3
 #define BOOST_SPIRIT_ACTIONS_ALLOW_ATTR_COMPAT
@@ -569,8 +602,11 @@ bool InitParseText(std::string text)
     std::string data = text;
     //std::string data(text.toStdString().c_str());
     if (data.size() < 1) {
+#ifndef QT_CORE_LIB
         //std::cerr << "no data for parser" << std::endl;
+#else
         QMessageBox::information(0,"Error","No Data for parser.\nABORT.");
+#endif
         return false;
     }
 
@@ -597,33 +633,52 @@ bool InitParseText(std::string text)
     return qi::parse(iter, end, dbase, ast);
 }
 
+#ifndef QT_CORE_LIB
+bool parseText(std::string text, int mode)
+#else
 bool parseText(QString text, int mode)
+#endif
 {
     dBaseParser::ast_print  printer;
     dBaseParser::dynamics.clear();
 
     try {
         if (InitParseText(text.toStdString())) {
-            //std::cout << "SUCCESS" << std::endl;
+#ifndef QT_CORE_LIB
+            std::cout << "SUCCESS" << std::endl;
+#else
             QMessageBox::information(w,"text parser","SUCCESS");
+#endif
             printer(dBaseParser::dast);
 
             int val = 0;
             {
                 val = dBaseParser::dynamics[0].data_value_int;
+
+#ifndef QT_CORE_LIB
+                cout << val;
+#else
                 w->ui->warningMemo->addItem(QString("--> %1")
                 .arg(val));
+#endif
             }
 
-            w->ui->warningMemo->addItem("-----");
+            //w->ui->warningMemo->addItem("-----");
             //.arg(val));
         } else {
-            //std::cout << "ERROR" << std::endl;
+#ifndef QT_CORE_LIB
+            std::cout << "ERROR" << std::endl;
+#else
             QMessageBox::information(w,"text parser","ERROR");
+#endif
         }
     }
     catch (exception& e) {
+#ifndef QT_CORE_LIB
+        cout << "error: " << e.what() << endl;
+#else
         QMessageBox::information(w,"parser error",e.what());
+#endif
     }
 
     return 0;
