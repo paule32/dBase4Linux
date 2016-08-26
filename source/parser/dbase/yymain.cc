@@ -247,7 +247,7 @@ namespace dBaseParser
             vec_push << val;
         }
         else {
-            expr = expression_ast(class_op(oper, str1, str2, *this));
+            expr = class_op(oper, str1, str2, *this);
             dast = expr;
         }
     }
@@ -582,7 +582,7 @@ cout << "4444444" << endl;
             =   (  tok.kw_class
                 >> tok.identifier
                 >> tok.kw_of
-                >> tok.identifier    >> class_body
+                >> tok.identifier    >> *class_body
                 >> tok.kw_endclass)
                 [
                     qi::_val = phx::construct<expression_ast>(
