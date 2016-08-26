@@ -105,7 +105,10 @@ namespace dBaseParser
         QMyMainWindow *  data_value_widget;
     };
     QVector <dBaseVariables*> dynamics;
-    QVector <QString>         vec_push;
+
+    QVector <QString> vec_push_1;  // lhs object
+    QVector <QString> vec_push_2;  // new object
+    QVector <QString> vec_push_3;  // rhs object
 
     int getVariable(QString name)
     {
@@ -242,9 +245,14 @@ namespace dBaseParser
         QString str = oper.c_str();
         QString val = str1.c_str();
 
-        if (str.contains("@this")){
-            cout << str1 << endl;
-            vec_push << val;
+        if (str == QString("@this@parent")) {
+            vec_push_3 << val;
+        }
+        else if (str == QString("@this@object")) {
+            vec_push_2 << val;
+        }
+        else if (str == QString("@this")) {
+            vec_push_1 << val;
         }
         else {
             expr = class_op(oper, str1, str2, *this);
@@ -415,6 +423,7 @@ cout << "4444444" << endl;
         lex::token_def<lex::omit> kw_class;
         lex::token_def<lex::omit> kw_of;
         lex::token_def<lex::omit> kw_endclass;
+        lex::token_def<lex::omit> kw_new;
 
         lex::token_def<lex::omit> kw_this;
 
@@ -436,6 +445,7 @@ cout << "4444444" << endl;
             kw_class        = "(?i:class)";
             kw_endclass     = "(?i:endclass)";
             kw_of           = "(?i:of)";
+            kw_new          = "(?i:new)";
 
             kw_this         = "(?i:this)";
 
@@ -600,6 +610,25 @@ cout << "4444444" << endl;
                         phx::construct<std::string>(qi::_1),
                         phx::construct<std::string>(""))
                     ] )
+                    >> tok.my_assign
+                    >> (expression [ _val = qi::_1 ] )
+                    |   tok.kw_new
+                    >>  tok.kw_this
+                    >> *('.' >> tok.identifier [
+                        qi::_val = phx::construct<expression_ast>(
+                        phx::construct<std::string>("@this@object"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(""))
+                    ] )
+                    >> ('('
+                    >> tok.kw_this
+                    >> *('.' >> tok.identifier )
+                    >> ')' [
+                        qi::_val = phx::construct<expression_ast>(
+                        phx::construct<std::string>("@this@parent"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(""))
+                    ])
                 ;
 
             start.name("start");
@@ -648,7 +677,6 @@ cout << "4444444" << endl;
 bool InitParseText(std::string text)
 {
     std::string data = text;
-    //std::string data(text.toStdString().c_str());
     if (data.size() < 1) {
         QMessageBox::information(0,"Error","No Data for parser.\nABORT.");
         return false;
@@ -682,7 +710,12 @@ bool parseText(QString text, int mode)
     namespace dp = dBaseParser;
 
     dp::ast_print  printer;
+
     dp::dynamics.clear();
+
+    dp::vec_push_1.clear();
+    dp::vec_push_2.clear();
+    dp::vec_push_3.clear();
 
     try {
         if (InitParseText(text.toStdString())) {
