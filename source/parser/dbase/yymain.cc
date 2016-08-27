@@ -473,7 +473,7 @@ cout << "4444444" << endl;
                 printLn
                 ;
             this->self +=
-                kw_class | kw_of | kw_endclass | kw_this
+                kw_new | kw_class | kw_of | kw_endclass | kw_this
                 ;
             this->self +=
                   identifier
@@ -582,6 +582,7 @@ cout << "4444444" << endl;
                 = tok.cpcomment
                 | tok.c_comment
                 | tok.d_comment
+                | tok.whitespace
                 ;
 
             printLn
@@ -589,47 +590,56 @@ cout << "4444444" << endl;
                 ;
 
             class_definition
-            =   (  tok.kw_class
-                >> tok.identifier
-                >> tok.kw_of
-                >> tok.identifier    >> *class_body
-                >> tok.kw_endclass)
-                [
+            = *((tok.kw_class
+            >>   tok.identifier
+            >>   tok.kw_of
+            >>   tok.identifier)
+            [
+                 qi::_val = phx::construct<expression_ast>(
+                 phx::construct<std::string>("create class"),
+                 phx::construct<std::string>(qi::_1),
+                 phx::construct<std::string>(qi::_2))
+            ]
+            >>  *class_body
+            >>   tok.kw_endclass)
+            ;
+
+        class_body
+            =  *comments
+            ;
+
+
+                    /*
+            |  *(tok.kw_this
+            >> *('.' >> tok.identifier  [
                     qi::_val = phx::construct<expression_ast>(
-                    phx::construct<std::string>("create class"),
+                    phx::construct<std::string>("@this"),
                     phx::construct<std::string>(qi::_1),
-                    phx::construct<std::string>(qi::_2))
-                ]
-                ;
-            class_body
-                =  *comments
-                   | tok.kw_this
-                >> *('.' >> tok.identifier  [
-                        qi::_val = phx::construct<expression_ast>(
-                        phx::construct<std::string>("@this"),
-                        phx::construct<std::string>(qi::_1),
-                        phx::construct<std::string>(""))
-                    ] )
-                    >> tok.my_assign
-                    >> (expression [ _val = qi::_1 ] )
-                    |   tok.kw_new
-                    >>  tok.kw_this
-                    >> *('.' >> tok.identifier [
-                        qi::_val = phx::construct<expression_ast>(
-                        phx::construct<std::string>("@this@object"),
-                        phx::construct<std::string>(qi::_1),
-                        phx::construct<std::string>(""))
-                    ] )
-                    >> ('('
-                    >> tok.kw_this
-                    >> *('.' >> tok.identifier )
-                    >> ')' [
-                        qi::_val = phx::construct<expression_ast>(
-                        phx::construct<std::string>("@this@parent"),
-                        phx::construct<std::string>(qi::_1),
-                        phx::construct<std::string>(""))
-                    ])
-                ;
+                    phx::construct<std::string>(""))
+                ])
+                >> tok.my_assign
+                >> (expression [ _val = qi::_1 ] )
+                |   tok.kw_new
+                >>  tok.kw_this
+                >> *('.' >> tok.identifier [
+                    qi::_val = phx::construct<expression_ast>(
+                    phx::construct<std::string>("@this@object"),
+                    phx::construct<std::string>(qi::_1),
+                    phx::construct<std::string>(""))
+                ])
+                >> char_('(')
+                >> tok.kw_this
+                >> *('.' >> tok.identifier [
+                    qi::_val = phx::construct<expression_ast>(
+                    phx::construct<std::string>("@this@parent"),
+                    phx::construct<std::string>(qi::_1),
+                    phx::construct<std::string>(""))
+                ])
+                >> char_(')'))
+            ;*/
+
+
+
 
             start.name("start");
             symsbols.name("symsbols");
@@ -640,6 +650,7 @@ cout << "4444444" << endl;
             printLn.name("printLn");
             class_definition.name("class_definition");
             class_body.name("class_body");
+            class_def_only.name("class_def_only");
             h_expression.name("h_expression");
 
             BOOST_SPIRIT_DEBUG_NODE(start);
@@ -648,6 +659,7 @@ cout << "4444444" << endl;
             BOOST_SPIRIT_DEBUG_NODE(printLn);
             BOOST_SPIRIT_DEBUG_NODE(class_definition);
             BOOST_SPIRIT_DEBUG_NODE(class_body);
+            BOOST_SPIRIT_DEBUG_NODE(class_def_only);
             BOOST_SPIRIT_DEBUG_NODE(factor);
             BOOST_SPIRIT_DEBUG_NODE(term);
             BOOST_SPIRIT_DEBUG_NODE(expression);
@@ -664,12 +676,13 @@ cout << "4444444" << endl;
         typedef qi::rule<Iterator, skipper_type> simple_rule;
 
         simple_rule start, symsbols, comments, printLn;
-        simple_rule class_body;
+        simple_rule class_body, class_def_only;
 
         qi::rule<Iterator, expression_ast()>
              expression, term, factor
            , h_expression
            , class_definition
+
            ;
     };
 }
@@ -722,7 +735,6 @@ bool parseText(QString text, int mode)
             QMessageBox::information(w,"text parser","SUCCESS");
             printer(dp::dast);
 
-            w->hide();
             for (int o = 0; o <= dp::dynamics.size(); o++)
             {
                 if (dp::dynamics[o]->data_type == dp::dBaseTypes::w_value) {
@@ -730,7 +742,6 @@ bool parseText(QString text, int mode)
                     dp::dynamics[o]->data_value_widget->showModal();
                 }
             }
-            w->show();
         }   else {
             QMessageBox::information(w,"text parser","ERROR");
         }
