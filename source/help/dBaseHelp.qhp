@@ -10,9 +10,13 @@
         </toc>
         <keywords>
             <keyword name="Insert rectangle" ref="./test.html"/>
+            <keyword name="?" ref="./printline.html"/>
+            <keyword name="APPEND" ref="./append.html"/>
         </keywords>
         <files>
             <file>index.html</file>
+            <file>append.html</file>
+            <file>printline.html</file>
             <file>test.html</file>
         </files>
     </filterSection>

@@ -335,11 +335,12 @@ namespace dBaseParser
 
         void operator()(expression_ast const& ast) const
         {
+            /*
             cout << "---> "
                  << ast.expr.type().name()
-                 << endl;
+                 << endl;*/
 
-            dast = ast;
+            //dast = ast;
             //if (!(ast.expr.type().name() == std::string("N11dBaseParser3nilE")))
             //boost::apply_visitor(*this, ast.expr);
         }
@@ -524,7 +525,7 @@ cout << "4444444" << endl;
             using qi::_val;
 
             start
-                = +symsbols
+                = symsbols
                 ;
 
             expression =
@@ -565,82 +566,87 @@ cout << "4444444" << endl;
                 ;
 
             symsbols
-                =
-                 printLn
-                | comments
-                | class_definition
-                | h_expression
-                ;
-
-            h_expression
-                = (tok.identifier
-                >> tok.my_assign
-                >> expression              [ _val = qi::_1 ] )
-                ;
+            = comments
+            |  class_definition
+            ;
 
             comments
-                = tok.cpcomment
-                | tok.c_comment
-                | tok.d_comment
-                | tok.whitespace
-                ;
-
-            printLn
-                = tok.printLn >> tok.quoted_string
-                ;
+            =
+            *( tok.cpcomment
+            |  tok.c_comment
+            |  tok.d_comment
+            |  tok.whitespace
+            )
+            ;
 
             class_definition
-            = *((tok.kw_class
-            >>   tok.identifier
-            >>   tok.kw_of
-            >>   tok.identifier)
+             = comments >> (tok.kw_class
+            >> comments >>    tok.identifier
+            >> comments >>    tok.kw_of
+            >> comments >>    tok.identifier)
             [
-                 qi::_val = phx::construct<expression_ast>(
-                 phx::construct<std::string>("create class"),
-                 phx::construct<std::string>(qi::_1),
-                 phx::construct<std::string>(qi::_2))
+               qi::_val = phx::construct<expression_ast>(
+               phx::construct<std::string>("create class"),
+               phx::construct<std::string>(qi::_1),
+               phx::construct<std::string>(qi::_2))
             ]
-            >>  *class_body
-            >>   tok.kw_endclass)
+            >> class_body
+            >> tok.kw_endclass
             ;
 
-        class_body
-            =  *comments
-            ;
+            class_body
+             = comments
+            >> tok.kw_this ;
+
 
 
                     /*
-            |  *(tok.kw_this
-            >> *('.' >> tok.identifier  [
+                 >> *(char_('.')  >>   comments
+                 >>   tok.identifier
+                 [
                     qi::_val = phx::construct<expression_ast>(
                     phx::construct<std::string>("@this"),
                     phx::construct<std::string>(qi::_1),
                     phx::construct<std::string>(""))
-                ])
-                >> tok.my_assign
-                >> (expression [ _val = qi::_1 ] )
-                |   tok.kw_new
-                >>  tok.kw_this
-                >> *('.' >> tok.identifier [
-                    qi::_val = phx::construct<expression_ast>(
-                    phx::construct<std::string>("@this@object"),
-                    phx::construct<std::string>(qi::_1),
-                    phx::construct<std::string>(""))
-                ])
-                >> char_('(')
-                >> tok.kw_this
-                >> *('.' >> tok.identifier [
-                    qi::_val = phx::construct<expression_ast>(
-                    phx::construct<std::string>("@this@parent"),
-                    phx::construct<std::string>(qi::_1),
-                    phx::construct<std::string>(""))
-                ])
-                >> char_(')'))
+                 ]));
+
+
+
+                 >> comments  >> tok.my_assign
+                 >> comments
+            >> (expression [ _val = qi::_1 ]))
             ;*/
 
+                    /*
+                  | tok.kw_new
+                    >> comments   >> tok.kw_this
+                    >> comments
+                    >> *(char_('.')
+                        >> comments
+                        >> tok.identifier
+                        [
+                            qi::_val = phx::construct<expression_ast>(
+                            phx::construct<std::string>("@this@object"),
+                            phx::construct<std::string>(qi::_1),
+                            phx::construct<std::string>(""))
+                        ])
+                        >> comments >> char_('(')
+                        >> comments >> tok.kw_this
+                        >> comments
+                        >> *(char_('.')
+                        >> comments
+                        >> tok.identifier
+                        [
+                            qi::_val = phx::construct<expression_ast>(
+                            phx::construct<std::string>("@this@parent"),
+                            phx::construct<std::string>(qi::_1),
+                            phx::construct<std::string>(""))
+                        ])
+                        >> comments
+                        >> char_(')')))
+            ;*/
 
-
-
+/*
             start.name("start");
             symsbols.name("symsbols");
             comments.name("comments");
@@ -650,7 +656,6 @@ cout << "4444444" << endl;
             printLn.name("printLn");
             class_definition.name("class_definition");
             class_body.name("class_body");
-            class_def_only.name("class_def_only");
             h_expression.name("h_expression");
 
             BOOST_SPIRIT_DEBUG_NODE(start);
@@ -659,7 +664,6 @@ cout << "4444444" << endl;
             BOOST_SPIRIT_DEBUG_NODE(printLn);
             BOOST_SPIRIT_DEBUG_NODE(class_definition);
             BOOST_SPIRIT_DEBUG_NODE(class_body);
-            BOOST_SPIRIT_DEBUG_NODE(class_def_only);
             BOOST_SPIRIT_DEBUG_NODE(factor);
             BOOST_SPIRIT_DEBUG_NODE(term);
             BOOST_SPIRIT_DEBUG_NODE(expression);
@@ -670,13 +674,15 @@ cout << "4444444" << endl;
             qi::debug(factor);
             qi::debug(term);
             qi::debug(expression);
+*/
         }
 
         typedef qi::unused_type skipper_type;
         typedef qi::rule<Iterator, skipper_type> simple_rule;
 
+        simple_rule empty;
         simple_rule start, symsbols, comments, printLn;
-        simple_rule class_body, class_def_only;
+        simple_rule class_body;
 
         qi::rule<Iterator, expression_ast()>
              expression, term, factor
@@ -735,6 +741,9 @@ bool parseText(QString text, int mode)
             QMessageBox::information(w,"text parser","SUCCESS");
             printer(dp::dast);
 
+            if (dp::dynamics.size() < 0) {
+                return true;
+            }
             for (int o = 0; o <= dp::dynamics.size(); o++)
             {
                 if (dp::dynamics[o]->data_type == dp::dBaseTypes::w_value) {

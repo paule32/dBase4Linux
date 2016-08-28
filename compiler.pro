@@ -27,7 +27,7 @@ DEFINES += BUILDDATE=\\\"$$system(date '+%Y-%m-%d')\\\"
 #----------------------------------------------------------------------
 # if you would not use pch - pre-compiled-header, just remove -H block
 #----------------------------------------------------------------------
-QMAKE_CXXFLAGS += -H \
+QMAKE_CXXFLAGS += \
 	-Wno-unused-parameter \
 	-Wno-unused-variable \
 	-Wno-unused-local-typedefs \
@@ -37,7 +37,7 @@ QMAKE_CXXFLAGS += -H \
         -Wno-reorder \
         -Wunused-function \
         -Woverloaded-virtual -fpermissive \
-        -ftemplate-depth=200 \
+        -ftemplate-depth=400 \
         -frtti -fexceptions  -std=c++17 \
         -I$${TOPDIR}. -I$${SRCDIR} -I$${SRCDIR}/includes \
         -D__BYTE_ORDER=__LITTLE_ENDIAN \
@@ -117,7 +117,11 @@ DISTFILES += \
     README.md \
     examples/test1.prg \
     source/images/addierer.png \
-    source/serverfiles/users.php
+    source/serverfiles/users.php \
+    source/help/index.html \
+    source/help/test.html \
+    source/help/printline.html \
+    source/help/append.html
 
 LIBS += -L"/usr/local/lib64" -lstdc++
 LIBS += -L"/dbase" -lmod_dbase
