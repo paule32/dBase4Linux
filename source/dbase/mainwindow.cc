@@ -105,13 +105,13 @@ void MainWindow::addHelpPanel()
 {
     helpEngine= new QHelpEngine(
     QApplication::applicationDirPath() +
-    "./help/dBaseHelp.qhc",dynamic_cast<QMainWindow*>(w));
+    "/help/dBaseHelp.qhc",dynamic_cast<QMainWindow*>(w));
 
     bool flag= helpEngine->setupData();
     if (!flag) {
         delete helpEngine;
         helpEngine = new QHelpEngine(
-        "./help/dBaseHelp.qhc",this);
+        "/help/dBaseHelp.qhc",this);
 
         if (!(flag = helpEngine->setupData())) {
             delete helpEngine;

@@ -465,7 +465,14 @@ cout << "4444444" << endl;
             d_comment = "\\*\\*[^\\n]*\\n";                    // dBase  line comment
             c_comment = "\\/\\*[^*]*\\*+([^/*][^*]*\\*+)*\\/"; // c-style comments
 
-            whitespace = "[ \\t\\n]+";
+            whitespace = "[ \\t\\r\\n]*";
+
+            this->self +=
+                  whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | c_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | d_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                ;
 
             this->self += lex::token_def<>
                     ('(') | ')'
@@ -481,13 +488,6 @@ cout << "4444444" << endl;
                 | my_assign
                 | number_digit
                 | quoted_string
-                ;
-
-            this->self +=
-                  whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
-                | cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
-                | c_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
-                | d_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 ;
         }
     };
@@ -525,9 +525,9 @@ cout << "4444444" << endl;
             using qi::_val;
 
             start
-                = symsbols
+                = +symsbols
                 ;
-
+/*
             expression =
                 term                            [ _val  = qi::_1 ]
                 >> *(
@@ -564,23 +564,24 @@ cout << "4444444" << endl;
                 |   ('-' >> factor              [ _val = neg(qi::_1)])
                 |   ('+' >> factor              [ _val = qi::_1 ] )
                 ;
-
+*/
             symsbols
             = comments
-            |  class_definition
             ;
 
             comments
-            =
-            *( tok.cpcomment
+            =  tok.cpcomment
             |  tok.c_comment
             |  tok.d_comment
             |  tok.whitespace
-            )
             ;
 
-            class_definition
-             = comments >> (tok.kw_class
+//            class_definition
+//            = (comments >> tok.kw_class)
+
+                    ;
+
+                    /*
             >> comments >>    tok.identifier
             >> comments >>    tok.kw_of
             >> comments >>    tok.identifier)
@@ -593,9 +594,9 @@ cout << "4444444" << endl;
             >> class_body
             >> tok.kw_endclass
             ;
-
+*/
             class_body
-             = comments
+            = comments
             >> tok.kw_this ;
 
 
@@ -646,7 +647,6 @@ cout << "4444444" << endl;
                         >> char_(')')))
             ;*/
 
-/*
             start.name("start");
             symsbols.name("symsbols");
             comments.name("comments");
@@ -656,7 +656,6 @@ cout << "4444444" << endl;
             printLn.name("printLn");
             class_definition.name("class_definition");
             class_body.name("class_body");
-            h_expression.name("h_expression");
 
             BOOST_SPIRIT_DEBUG_NODE(start);
             BOOST_SPIRIT_DEBUG_NODE(symsbols);
@@ -667,14 +666,12 @@ cout << "4444444" << endl;
             BOOST_SPIRIT_DEBUG_NODE(factor);
             BOOST_SPIRIT_DEBUG_NODE(term);
             BOOST_SPIRIT_DEBUG_NODE(expression);
-            BOOST_SPIRIT_DEBUG_NODE(h_expression);
 
             qi::debug(start);
             qi::debug(symsbols);
             qi::debug(factor);
             qi::debug(term);
             qi::debug(expression);
-*/
         }
 
         typedef qi::unused_type skipper_type;
@@ -686,7 +683,6 @@ cout << "4444444" << endl;
 
         qi::rule<Iterator, expression_ast()>
              expression, term, factor
-           , h_expression
            , class_definition
 
            ;
