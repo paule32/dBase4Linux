@@ -187,7 +187,12 @@ void MainWindow::on_SaveFile()
                 QIODevice::Text);
 
                 QString src = editor->document()->toPlainText();
-                f.write(src.toLatin1().data(),src.size());
+
+                QTextStream out(&f);
+                out.setCodec("UTF-8");
+                out.setGenerateByteOrderMark(false);
+                out << src;
+
                 f.close();
             }
         }
@@ -215,16 +220,22 @@ void MainWindow::on_FileOpen(int state)
         QIODevice::Truncate   |
         QIODevice::Text);
 
-        QString src = editor->document()->toPlainText();
-        f.write(src.toLatin1().data(),src.size());
+        QString src =
+        editor->document()->toPlainText();
+
+        QTextStream out(&f);
+        out.setCodec("UTF-8");
+        out.setGenerateByteOrderMark(false);
+        out << src;
+
         f.close();
     }   if (state == 1)  return ;
     QString dname = QDir::homePath();
     QString fname = QFileDialog::getOpenFileName(
-    this,
-    tr("Open File"),
-    dname,
-    "Forms *.frm (*.frm);;Programs *.prg (*.prg);;All Files *.* (*.*)");
+        this,
+        tr("Open File"),
+        dname,
+        "Forms *.frm (*.frm);;Programs *.prg (*.prg);;All Files *.* (*.*)");
 
     if (fname.size() < 1)
     return;

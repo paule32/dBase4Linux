@@ -18,8 +18,54 @@ MyEditor::MyEditor(QWidget *parent)
 
     highlighter = new Highlighter(this);
 
+    setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(this, SIGNAL(customContextMenuRequested(const QPoint&)),
+            this, SLOT(ShowContextMenu(const QPoint&)));
+
     on_gutterUpdate(0);
     on_cursorPositionChanged();
+}
+
+void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
+{
+    // for most widgets
+    QPoint globalPos = mapToGlobal(pos);
+    // for QAbstractScrollArea and derived classes you would use:
+    // QPoint globalPos = myWidget->viewport()->mapToGlobal(pos);
+
+    QMenu myMenu;
+    myMenu.addAction("insert template...");
+    // ...
+
+    QAction* selectedItem = myMenu.exec(globalPos);
+    if (selectedItem)
+    {
+        std::string temp =
+R"(** END HEADER -- Diese Zeile nicht löschen.
+// Erstellt am 14.01.1997
+//
+parameter bModal
+local f
+f = new MainFormular()
+if (bModal)
+    f.mdi = .F.        && ensure mdi
+    f.ReadModal()
+else
+    f.Open()
+endif
+
+CLASS MainFormular OF FORM
+
+
+ENDCLASS
+)";
+        this->document()->clear();
+        this->document()->setPlainText(QString(temp.c_str()));
+    }
+    else
+    {
+        // nothing was chosen
+    }
 }
 
 void MyEditor::resizeEvent(QResizeEvent *event)
@@ -177,6 +223,10 @@ void Highlighter::highlightBlock(const QString &text)
                 setFormat(start, i - start + 2, cppCommentFormat);
             }   }   else {
             if (text.mid(i,2) == "**") {
+                setFormat(i, text.length() - i, cppCommentFormat);
+                break;
+            }
+            if (text.mid(i,2) == "&&") {
                 setFormat(i, text.length() - i, cppCommentFormat);
                 break;
             }

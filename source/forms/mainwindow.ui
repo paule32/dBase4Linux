@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1280</width>
-    <height>1140</height>
+    <width>1281</width>
+    <height>891</height>
    </rect>
   </property>
   <property name="mouseTracking">
@@ -46,53 +46,10 @@
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>1280</width>
-      <height>1100</height>
+      <width>1281</width>
+      <height>871</height>
      </rect>
     </property>
-    <widget class="QWidget" name="widget_10" native="true">
-     <property name="enabled">
-      <bool>true</bool>
-     </property>
-     <property name="geometry">
-      <rect>
-       <x>0</x>
-       <y>0</y>
-       <width>1281</width>
-       <height>30</height>
-      </rect>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>30</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>30</height>
-      </size>
-     </property>
-     <property name="baseSize">
-      <size>
-       <width>0</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="focusPolicy">
-      <enum>Qt::StrongFocus</enum>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">background-color: rgb(114, 67, 67);</string>
-     </property>
-    </widget>
     <widget class="QWidget" name="widmain" native="true">
      <property name="geometry">
       <rect>
@@ -114,10 +71,10 @@
      <widget class="QWidget" name="horizontalWidget_3" native="true">
       <property name="geometry">
        <rect>
-        <x>0</x>
+        <x>-1</x>
         <y>0</y>
-        <width>1280</width>
-        <height>921</height>
+        <width>1281</width>
+        <height>841</height>
        </rect>
       </property>
       <property name="sizePolicy">
@@ -132,7 +89,7 @@
          <x>0</x>
          <y>1</y>
          <width>1381</width>
-         <height>921</height>
+         <height>841</height>
         </rect>
        </property>
        <property name="sizePolicy">
@@ -165,7 +122,7 @@
           <x>0</x>
           <y>0</y>
           <width>94</width>
-          <height>861</height>
+          <height>801</height>
          </rect>
         </property>
         <property name="sizePolicy">
@@ -684,47 +641,13 @@ background: transparent;</string>
          </property>
         </widget>
        </widget>
-       <widget class="QWidget" name="widget_2" native="true">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>860</y>
-          <width>1275</width>
-          <height>40</height>
-         </rect>
-        </property>
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>40</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>30</height>
-         </size>
-        </property>
-        <property name="focusPolicy">
-         <enum>Qt::StrongFocus</enum>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">background-color: rgb(114, 67, 67);</string>
-        </property>
-       </widget>
        <widget class="QTabWidget" name="tabWidget_3">
         <property name="geometry">
          <rect>
-          <x>100</x>
+          <x>109</x>
           <y>0</y>
-          <width>320</width>
-          <height>861</height>
+          <width>311</width>
+          <height>801</height>
          </rect>
         </property>
         <property name="sizePolicy">
@@ -749,10 +672,45 @@ background: transparent;</string>
          <enum>Qt::StrongFocus</enum>
         </property>
         <property name="styleSheet">
-         <string notr="true">background-color: rgb(231, 231, 231);</string>
+         <string notr="true">QTabWidget::pane { /* The tab widget frame */
+    border-top: 2px solid #C2C7CB;
+}
+
+QTabWidget::tab-bar {
+    left: 5px; /* move to the right by 5px */
+}
+
+/* Style the tab using the tab sub-control. Note that
+    it reads QTabBar _not_ QTabWidget */
+QTabBar::tab {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 #E1E1E1, stop: 0.4 #DDDDDD,
+                                stop: 0.5 #D8D8D8, stop: 1.0 #D3D3D3);
+    border: 2px solid #C4C4C3;
+    border-bottom-color: #C2C7CB; /* same as the pane color */
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    min-width: 8ex;
+    padding: 2px;
+}
+
+QTabBar::tab:selected, QTabBar::tab:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 #fafafa, stop: 0.4 #f4f4f4,
+                                stop: 0.5 #e7e7e7, stop: 1.0 #fafafa);
+}
+
+QTabBar::tab:selected {
+    border-color: #9B9B9B;
+    border-bottom-color: #C2C7CB; /* same as pane color */
+}
+
+QTabBar::tab:!selected {
+    margin-top: 2px; /* make non-selected tabs look smaller */
+}</string>
         </property>
         <property name="tabPosition">
-         <enum>QTabWidget::West</enum>
+         <enum>QTabWidget::North</enum>
         </property>
         <property name="currentIndex">
          <number>0</number>
@@ -773,10 +731,10 @@ background: transparent;</string>
          <widget class="components_draglist" name="listWidget">
           <property name="geometry">
            <rect>
-            <x>1</x>
-            <y>4</y>
-            <width>281</width>
-            <height>841</height>
+            <x>0</x>
+            <y>0</y>
+            <width>301</width>
+            <height>761</height>
            </rect>
           </property>
           <property name="sizePolicy">
@@ -813,8 +771,8 @@ background: transparent;</string>
          <rect>
           <x>420</x>
           <y>0</y>
-          <width>851</width>
-          <height>861</height>
+          <width>871</width>
+          <height>791</height>
          </rect>
         </property>
         <property name="sizePolicy">
@@ -838,10 +796,10 @@ background: transparent;</string>
         <widget class="QTabWidget" name="tabWidget_4">
          <property name="geometry">
           <rect>
-           <x>11</x>
-           <y>11</y>
-           <width>831</width>
-           <height>841</height>
+           <x>0</x>
+           <y>0</y>
+           <width>851</width>
+           <height>791</height>
           </rect>
          </property>
          <property name="sizePolicy">
@@ -852,6 +810,44 @@ background: transparent;</string>
          </property>
          <property name="focusPolicy">
           <enum>Qt::StrongFocus</enum>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QTabWidget::pane { /* The tab widget frame */
+    border-top: 2px solid #C2C7CB;
+}
+
+QTabWidget::tab-bar {
+    left: 5px; /* move to the right by 5px */
+}
+
+/* Style the tab using the tab sub-control. Note that
+    it reads QTabBar _not_ QTabWidget */
+QTabBar::tab {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 #E1E1E1, stop: 0.4 #DDDDDD,
+                                stop: 0.5 #D8D8D8, stop: 1.0 #D3D3D3);
+    border: 2px solid #C4C4C3;
+    border-bottom-color: #C2C7CB; /* same as the pane color */
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    min-width: 8ex;
+    padding: 2px;
+}
+
+QTabBar::tab:selected, QTabBar::tab:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 #fafafa, stop: 0.4 #f4f4f4,
+                                stop: 0.5 #e7e7e7, stop: 1.0 #fafafa);
+}
+
+QTabBar::tab:selected {
+    border-color: #9B9B9B;
+    border-bottom-color: #C2C7CB; /* same as pane color */
+}
+
+QTabBar::tab:!selected {
+    margin-top: 2px; /* make non-selected tabs look smaller */
+}</string>
          </property>
          <property name="currentIndex">
           <number>0</number>
@@ -874,8 +870,8 @@ background: transparent;</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>821</width>
-             <height>801</height>
+             <width>841</width>
+             <height>751</height>
             </rect>
            </property>
            <widget class="MyEditor" name="editorWidget" native="true">
@@ -883,7 +879,7 @@ background: transparent;</string>
              <rect>
               <x>10</x>
               <y>10</y>
-              <width>801</width>
+              <width>821</width>
               <height>621</height>
              </rect>
             </property>
@@ -909,10 +905,10 @@ background: transparent;</string>
            <widget class="QListWidget" name="warningMemo">
             <property name="geometry">
              <rect>
-              <x>5</x>
-              <y>641</y>
+              <x>10</x>
+              <y>640</y>
               <width>811</width>
-              <height>151</height>
+              <height>111</height>
              </rect>
             </property>
             <property name="autoFillBackground">
@@ -992,12 +988,85 @@ background: transparent;</string>
          </widget>
         </widget>
        </widget>
-       <zorder>widget_7</zorder>
-       <zorder>tabWidget_3</zorder>
-       <zorder>widget_6</zorder>
-       <zorder>widget_2</zorder>
+       <widget class="QWidget" name="widget_2" native="true">
+        <property name="geometry">
+         <rect>
+          <x>-70</x>
+          <y>800</y>
+          <width>1351</width>
+          <height>40</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::StrongFocus</enum>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(114, 67, 67);</string>
+        </property>
+       </widget>
       </widget>
      </widget>
+    </widget>
+    <widget class="QWidget" name="widget_10" native="true">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>0</y>
+       <width>1281</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>30</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>30</height>
+      </size>
+     </property>
+     <property name="baseSize">
+      <size>
+       <width>0</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::StrongFocus</enum>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: rgb(114, 67, 67);</string>
+     </property>
     </widget>
    </widget>
   </widget>
@@ -1006,7 +1075,7 @@ background: transparent;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1280</width>
+     <width>1281</width>
      <height>27</height>
     </rect>
    </property>

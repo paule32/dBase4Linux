@@ -30,6 +30,7 @@ private:
 public slots:
     void on_dockHelpOpen();
     void on_parseText();
+    void ShowContextMenu(const QPoint& pos);
 signals:
     void onHelpF1();
 };

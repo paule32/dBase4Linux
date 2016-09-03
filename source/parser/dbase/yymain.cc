@@ -89,6 +89,7 @@ namespace dBaseParser
 
     enum dBaseTypes {
         unknown,
+        p_value,        // parameter
         w_value,        // widget type
         m_value,
         c_value,
@@ -105,6 +106,7 @@ namespace dBaseParser
         QMyMainWindow *  data_value_widget;
     };
     QVector <dBaseVariables*> dynamics;
+    QVector <dBaseVariables*> app_parameter;    // application parameters (forms)
 
     QVector <QString> vec_push_1;  // lhs object
     QVector <QString> vec_push_2;  // new object
@@ -143,7 +145,6 @@ namespace dBaseParser
             , boost::recursive_wrapper<binary_op>
             , boost::recursive_wrapper<unary_op>
             , boost::recursive_wrapper<class_op>
-           // , boost::recursive_wrapper<dBaseExpression>
         >
         type;
         type expr;
@@ -151,7 +152,6 @@ namespace dBaseParser
         expression_ast() : expr(nil()) { }
 
         expression_ast(int dummy1, int dummy2, int dummy3) {
-            cout << "trower" << endl;
             throw dBaseMissException;
         }
 
@@ -249,6 +249,9 @@ namespace dBaseParser
         if (str == QString("create2class")) {
             expr = class_op(oper, sstr1.toStdString(), str1, *this);
             dast = expr;
+        }
+
+        if (str == QString("@app@parameter")) {
         }
 
         if (str == QString("@this@parent")) {
@@ -416,6 +419,7 @@ namespace dBaseParser
         // ----------------------------
         lex::token_def<lex::omit> whitespace;
         lex::token_def<lex::omit> cpcomment;
+        lex::token_def<lex::omit> d2comment;
         lex::token_def<lex::omit> d_comment;
         lex::token_def<lex::omit> c_comment;
 
@@ -425,6 +429,16 @@ namespace dBaseParser
         lex::token_def<lex::omit> kw_new;
 
         lex::token_def<lex::omit> kw_this;
+        lex::token_def<lex::omit> kw_true;
+        lex::token_def<lex::omit> kw_false;
+        lex::token_def<lex::omit> kw_and;
+        lex::token_def<lex::omit> kw_or;
+
+        lex::token_def<lex::omit> kw_parameter;
+        lex::token_def<lex::omit> kw_local;
+        lex::token_def<lex::omit> kw_if;
+        lex::token_def<lex::omit> kw_else;
+        lex::token_def<lex::omit> kw_endif;
 
         // --------------------------
         // tokens with attributes ...
@@ -446,7 +460,18 @@ namespace dBaseParser
             kw_of           = "(?i:of)";
             kw_new          = "(?i:new)";
 
+            kw_parameter    = "(?i:parameter)";
+            kw_local        = "(?i:local)";
+            kw_if           = "(?i:if)";
+            kw_else         = "(?i:else)";
+            kw_endif        = "(?i:endif)";
+
             kw_this         = "(?i:this)";
+
+            kw_false        = "(\\.(?i:f)\\.)|(\\.(?i:false)\\.)";
+            kw_true         = "(\\.(?i:t)\\.)|(\\.(?i:true)\\.)";
+            kw_and          = "\\.(?i:and)\\.";
+            kw_or           = "\\.(?i:or)\\.";
 
             printLn   = "\\\?";
 
@@ -461,14 +486,31 @@ namespace dBaseParser
 
             cpcomment = "\\/\\/[^\\n]*\\n"; // single line comment
             d_comment = "\\*\\*[^\\n]*\\n"; // dBase  line comment
+            d2comment = "\\&\\&[^\\n]*\\n"; // dBase  line comment
             c_comment = "\\/\\*[^*]*\\*+([^/*][^*]*\\*+)*\\/"; // c-style comments
 
             whitespace = "[ \\t\\r\\n]*";
 
             this->self +=
+                  kw_parameter
+                | kw_local
+                | kw_if
+                | kw_else
+                | kw_endif
+                ;
+
+            this->self +=
+                  kw_false
+                | kw_true
+                | kw_and
+                | kw_or
+                ;
+
+            this->self +=
                   cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | c_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | d_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | d2comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
                 ;
 
@@ -564,7 +606,11 @@ namespace dBaseParser
                 ;
 
             symsbols
-            = (comments | var_expr [ _val = qi::_1 ] | class_definition)
+            = ( comments
+              | var_expr [ _val = qi::_1 ]
+              | objective_form
+              | class_definition
+              )
             ;
 
             var_expr
@@ -573,8 +619,34 @@ namespace dBaseParser
                expression        [ _val = qi::_1 ] )
             ;
 
+            objective_form
+            = ( parameterwidget | localparameter | newobject | ifcondition)
+            ;
+
+            parameterwidget
+            = (tok.kw_parameter >> tok.identifier)
+            ;
+
+            localparameter
+            = (tok.kw_local >> tok.identifier)
+            ;
+
+            newobject
+            = (tok.identifier >> tok.my_assign
+            >> tok.kw_new     >> tok.identifier >> char_('(') >> char_(')'))
+            ;
+
+            ifcondition
+            = (tok.kw_if >> char_('(') >> tok.identifier >> char_(')')
+            >> tok.kw_else
+            >> tok.kw_endif)
+            ;
+
             comments
-            = (tok.cpcomment | tok.c_comment | tok.d_comment | tok.whitespace) ;
+            = ( tok.cpcomment | tok.c_comment
+              | tok.d_comment | tok.d2comment | tok.whitespace
+              )
+            ;
 
             class_definition
             = (tok.kw_class
@@ -583,13 +655,13 @@ namespace dBaseParser
                                     phx::construct<std::string>(qi::_1),
                                     phx::construct<std::string>("ident"))
                                   ] )
-               >> tok.kw_of
+               >>  tok.kw_of
                >> (tok.identifier [ phx::construct<expression_ast>(
                                     phx::construct<std::string>("create2class"),
                                     phx::construct<std::string>(qi::_1),
                                     phx::construct<std::string>("class of"))
                                   ] )
-                  >> class_entries
+               >> class_entries
                >> tok.kw_endclass)
             ;
 
@@ -610,6 +682,12 @@ namespace dBaseParser
             class_definition.name("class_definition");
             class_entry1.name("class_entry1");
             class_entries.name("class_entries");
+
+            objective_form.name("objective_form");
+            ifcondition.name("ifcondition");
+            localparameter.name("localparameter");
+            parameterwidget.name("parameterwidget");
+            newobject.name("newobject");
 
                     /*
             BOOST_SPIRIT_DEBUG_NODE(start);
@@ -635,6 +713,8 @@ namespace dBaseParser
                     , class_definition
                     , class_entries
                     , class_entry1
+                    , objective_form
+                    , ifcondition, localparameter, parameterwidget, newobject
                     ;
 
         qi::rule<Iterator, expression_ast()>
