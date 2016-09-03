@@ -213,7 +213,7 @@ namespace dBaseParser
             QString str = class_oname.c_str();
             QString ori = class_cname.c_str();
 
-            if (str.contains("form"))
+            if (str.toLower().contains("form"))
             {
                 if (getVariable(ori) < 1) {
                     dBaseVariables *v    = new dBaseVariables;
@@ -222,8 +222,7 @@ namespace dBaseParser
                     v->data_value_widget = new QMyMainWindow;
                     dynamics[getVariable(ori)] = v;
                 }   else {
-                    int o = getVariable(ori); delete
-                    dynamics[o]->data_value_widget;
+                    int o = getVariable(ori);
                     dynamics[o]->data_type = w_value;
                     dynamics[o]->data_value_widget = new QMyMainWindow;
                 }
@@ -244,6 +243,13 @@ namespace dBaseParser
     {
         QString str = oper.c_str();
         QString val = str1.c_str();
+
+        static QString sstr1;
+        if (str == QString("create1class")) { sstr1 = val; }
+        if (str == QString("create2class")) {
+            expr = class_op(oper, sstr1.toStdString(), str1, *this);
+            dast = expr;
+        }
 
         if (str == QString("@this@parent")) {
             vec_push_3 << val;
@@ -377,19 +383,15 @@ namespace dBaseParser
                 case '/': value = lval / rval; break;
             }
 
-            cout << "1111111111" << endl;
             if (int c = getVariable("onnn") < 1) {
-                cout << "2222222222222" << endl;
                 dBaseVariables *v = new dBaseVariables;
                 v->data_name      = "onnn" ;
                 v->data_type      = i_value;
                 v->data_value_int = value;
                 dynamics[c] = v; }    else {
-                cout << "333333333" << endl;
                 dynamics[c]->data_type      = i_value;
                 dynamics[c]->data_value_int = value;
             }
-cout << "4444444" << endl;
             dast.expr = value;
         }
 
@@ -402,10 +404,6 @@ cout << "4444444" << endl;
 
         void operator()(class_op const& expr) const
         {
-            cout << "000000000000000000000000000000" << endl;
-
-
-            cout << "############################" << endl;
             //boost::apply_visitor(*this, expr.class_owner);
         }
     };
@@ -461,17 +459,17 @@ cout << "4444444" << endl;
             // Identifier.
             identifier        = "[a-zA-Z][a-zA-Z0-9_]*";
 
-            cpcomment = "\\/\\/[^\\n]*\\n";                    // single line comment
-            d_comment = "\\*\\*[^\\n]*\\n";                    // dBase  line comment
+            cpcomment = "\\/\\/[^\\n]*\\n"; // single line comment
+            d_comment = "\\*\\*[^\\n]*\\n"; // dBase  line comment
             c_comment = "\\/\\*[^*]*\\*+([^/*][^*]*\\*+)*\\/"; // c-style comments
 
             whitespace = "[ \\t\\r\\n]*";
 
             this->self +=
-                  whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
-                | cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                  cpcomment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | c_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
                 | d_comment  [ lex::_pass = lex::pass_flags::pass_ignore ]
+                | whitespace [ lex::_pass = lex::pass_flags::pass_ignore ]
                 ;
 
             this->self += lex::token_def<>
@@ -525,9 +523,9 @@ cout << "4444444" << endl;
             using qi::_val;
 
             start
-                = +symsbols
+                = *symsbols
                 ;
-/*
+
             expression =
                 term                            [ _val  = qi::_1 ]
                 >> *(
@@ -564,127 +562,83 @@ cout << "4444444" << endl;
                 |   ('-' >> factor              [ _val = neg(qi::_1)])
                 |   ('+' >> factor              [ _val = qi::_1 ] )
                 ;
-*/
+
             symsbols
-            = comments
+            = (comments | var_expr [ _val = qi::_1 ] | class_definition)
+            ;
+
+            var_expr
+            = (tok.identifier >>
+               tok.my_assign  >>
+               expression        [ _val = qi::_1 ] )
             ;
 
             comments
-            =  tok.cpcomment
-            |  tok.c_comment
-            |  tok.d_comment
-            |  tok.whitespace
+            = (tok.cpcomment | tok.c_comment | tok.d_comment | tok.whitespace) ;
+
+            class_definition
+            = (tok.kw_class
+               >> (tok.identifier [ phx::construct<expression_ast>(
+                                    phx::construct<std::string>("create1class"),
+                                    phx::construct<std::string>(qi::_1),
+                                    phx::construct<std::string>("ident"))
+                                  ] )
+               >> tok.kw_of
+               >> (tok.identifier [ phx::construct<expression_ast>(
+                                    phx::construct<std::string>("create2class"),
+                                    phx::construct<std::string>(qi::_1),
+                                    phx::construct<std::string>("class of"))
+                                  ] )
+                  >> class_entries
+               >> tok.kw_endclass)
             ;
 
-//            class_definition
-//            = (comments >> tok.kw_class)
+            class_entry1
+            = *((tok.kw_this >>
+              *('.' >> tok.identifier)) >> tok.my_assign) ;
 
-                    ;
-
-                    /*
-            >> comments >>    tok.identifier
-            >> comments >>    tok.kw_of
-            >> comments >>    tok.identifier)
-            [
-               qi::_val = phx::construct<expression_ast>(
-               phx::construct<std::string>("create class"),
-               phx::construct<std::string>(qi::_1),
-               phx::construct<std::string>(qi::_2))
-            ]
-            >> class_body
-            >> tok.kw_endclass
-            ;
-*/
-            class_body
-            = comments
-            >> tok.kw_this ;
-
-
-
-                    /*
-                 >> *(char_('.')  >>   comments
-                 >>   tok.identifier
-                 [
-                    qi::_val = phx::construct<expression_ast>(
-                    phx::construct<std::string>("@this"),
-                    phx::construct<std::string>(qi::_1),
-                    phx::construct<std::string>(""))
-                 ]));
-
-
-
-                 >> comments  >> tok.my_assign
-                 >> comments
-            >> (expression [ _val = qi::_1 ]))
-            ;*/
-
-                    /*
-                  | tok.kw_new
-                    >> comments   >> tok.kw_this
-                    >> comments
-                    >> *(char_('.')
-                        >> comments
-                        >> tok.identifier
-                        [
-                            qi::_val = phx::construct<expression_ast>(
-                            phx::construct<std::string>("@this@object"),
-                            phx::construct<std::string>(qi::_1),
-                            phx::construct<std::string>(""))
-                        ])
-                        >> comments >> char_('(')
-                        >> comments >> tok.kw_this
-                        >> comments
-                        >> *(char_('.')
-                        >> comments
-                        >> tok.identifier
-                        [
-                            qi::_val = phx::construct<expression_ast>(
-                            phx::construct<std::string>("@this@parent"),
-                            phx::construct<std::string>(qi::_1),
-                            phx::construct<std::string>(""))
-                        ])
-                        >> comments
-                        >> char_(')')))
-            ;*/
+            class_entries
+            = *(comments | class_entry1 >> expression) ;
 
             start.name("start");
             symsbols.name("symsbols");
-            comments.name("comments");
             expression.name("expression");
             term.name("term");
             factor.name("factor");
-            printLn.name("printLn");
+            var_expr.name("var_expr");
+            comments.name("comments");
             class_definition.name("class_definition");
-            class_body.name("class_body");
+            class_entry1.name("class_entry1");
+            class_entries.name("class_entries");
 
+                    /*
             BOOST_SPIRIT_DEBUG_NODE(start);
             BOOST_SPIRIT_DEBUG_NODE(symsbols);
-            BOOST_SPIRIT_DEBUG_NODE(comments);
-            BOOST_SPIRIT_DEBUG_NODE(printLn);
-            BOOST_SPIRIT_DEBUG_NODE(class_definition);
-            BOOST_SPIRIT_DEBUG_NODE(class_body);
+            BOOST_SPIRIT_DEBUG_NODE(var_expr);
             BOOST_SPIRIT_DEBUG_NODE(factor);
             BOOST_SPIRIT_DEBUG_NODE(term);
             BOOST_SPIRIT_DEBUG_NODE(expression);
+            BOOST_SPIRIT_DEBUG_NODE(comments);
 
             qi::debug(start);
             qi::debug(symsbols);
             qi::debug(factor);
             qi::debug(term);
             qi::debug(expression);
+            qi::debug(var_expr);*/
         }
 
         typedef qi::unused_type skipper_type;
         typedef qi::rule<Iterator, skipper_type> simple_rule;
 
-        simple_rule empty;
-        simple_rule start, symsbols, comments, printLn;
-        simple_rule class_body;
+        simple_rule start, symsbols, comments
+                    , class_definition
+                    , class_entries
+                    , class_entry1
+                    ;
 
         qi::rule<Iterator, expression_ast()>
-             expression, term, factor
-           , class_definition
-
+             expression, term, factor, var_expr
            ;
     };
 }
@@ -692,10 +646,8 @@ cout << "4444444" << endl;
 bool InitParseText(std::string text)
 {
     std::string data = text;
-    if (data.size() < 1) {
-        QMessageBox::information(0,"Error","No Data for parser.\nABORT.");
-        return false;
-    }
+    if (data.size() < 1)
+    return false;
 
     using dBaseParser::expression_ast;
 
@@ -724,22 +676,23 @@ bool parseText(QString text, int mode)
 {
     namespace dp = dBaseParser;
 
-    dp::ast_print  printer;
-
     dp::dynamics.clear();
 
     dp::vec_push_1.clear();
     dp::vec_push_2.clear();
     dp::vec_push_3.clear();
 
+    dp::dBaseVariables *v = new
+    dp::dBaseVariables;
+    v->data_value_int = -2;
+    v->data_name = "@root";
+    dp::dynamics[dp::getVariable("@root")] = v;
+
     try {
         if (InitParseText(text.toStdString())) {
             QMessageBox::information(w,"text parser","SUCCESS");
-            printer(dp::dast);
-
-            if (dp::dynamics.size() < 0) {
-                return true;
-            }
+            if (dp::dynamics.size() < 0)
+            return true;
             for (int o = 0; o <= dp::dynamics.size(); o++)
             {
                 if (dp::dynamics[o]->data_type == dp::dBaseTypes::w_value) {
@@ -747,13 +700,15 @@ bool parseText(QString text, int mode)
                     dp::dynamics[o]->data_value_widget->showModal();
                 }
             }
+            dp::dynamics.clear();
+            return true;
         }   else {
             QMessageBox::information(w,"text parser","ERROR");
+            return false;
         }
     }
     catch (exception& e) {
         QMessageBox::information(w,"parser error",e.what());
-    }
-
-    return 0;
+        return false;
+    }   return true;
 }

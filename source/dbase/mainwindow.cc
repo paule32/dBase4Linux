@@ -16,6 +16,11 @@ MainWindow::MainWindow(QWidget *parent) :
             this,
             &MainWindow::on_FileOpen);
 
+    connect(ui->actionSpeichern,
+            &QAction::triggered,
+            this,
+            &MainWindow::on_SaveFile);
+
     connect(ui->actionAbout_Qt,
             &QAction::triggered,
             this,
@@ -164,45 +169,72 @@ void MainWindow::on_AboutQt() {
     QApplication::aboutQt();
 }
 
+void MainWindow::on_SaveFile()
+{
+    if (editor->document()->isModified()) {
+        editor->document()->setModified(false);
+        QString fname = editor->documentTitle();
+        if (fname.length() < 1) {
+            fname = QFileDialog::getSaveFileName(
+            this,
+            tr("Save File"),
+            QString(QDir::homePath() + fname),
+            "Forms *.frm (*.frm);;Programs *.prg (*.prg);;All Files *.* (*.*)");
+            if (fname.length() > 1) {
+                QFile f(fname); f.open(
+                QIODevice::WriteOnly  |
+                QIODevice::Truncate   |
+                QIODevice::Text);
+
+                QString src = editor->document()->toPlainText();
+                f.write(src.toLatin1().data(),src.size());
+                f.close();
+            }
+        }
+    }
+}
+
 void MainWindow::on_FileOpen(int state)
 {
     if (editor->document()->isModified()) {
         editor->document()->setModified(false );
         QString fname = editor->documentTitle();
-        if (fname.size() < 1) {
+        if (fname.length() < 1) {
             fname = QFileDialog::getSaveFileName(
             this,
             tr("Save File"),
-            QString(QDir::homePath() + QString("/test.prg")),
-            "Programs *.prg (*.prg);;All Files *.* (*.*)");
+            QString(QDir::homePath() + fname),
+            "Forms *.frm (*.frm);;Programs *.prg (*.prg);;All Files *.* (*.*)");
 
-            std::string fn = fname.toStdString();
-            if ((fn.substr(fn.find_last_of(".")+1) == "prg") == false) {
-            fname.append(".prg");
-            }   }
-        {   QFile f(fname); f.open(
-            QIODevice::WriteOnly  |
-            QIODevice::Truncate   |
-            QIODevice::Text);
-
-            QString src = editor->document()->toPlainText();
-            f.write(src.toLatin1().data(),src.size());
-            f.close();
+            //std::string fn = fname.toStdString();
+            //if ((fn.substr(fn.find_last_of(".")+1) == "prg") == false) {
+            //fname.append(".prg");
         }
-    }       if (state == 1)  return ;
+        QFile f(fname); f.open(
+        QIODevice::WriteOnly  |
+        QIODevice::Truncate   |
+        QIODevice::Text);
+
+        QString src = editor->document()->toPlainText();
+        f.write(src.toLatin1().data(),src.size());
+        f.close();
+    }   if (state == 1)  return ;
     QString dname = QDir::homePath();
     QString fname = QFileDialog::getOpenFileName(
-            this,
-            tr("Open File"),
-            dname,
-            "Programs *.prg (*.prg);;All Files *.* (*.*)");
+    this,
+    tr("Open File"),
+    dname,
+    "Forms *.frm (*.frm);;Programs *.prg (*.prg);;All Files *.* (*.*)");
 
     if (fname.size() < 1)
     return;
 
+    /*
     std::string fn = fname.toStdString();
-    if ((fn.substr(fn.find_last_of(".")+1) == "prg") == false)
-    fname.append(".prg");
+
+    if ((fn.substr(fn.find_last_of(".")+1) == "prg") == true) { fname.append(".prg"); }
+    if ((fn.substr(fn.find_last_of(".")+1) == "frm") == true) { fname.append(".frm"); }
+    */
 
     editor->setDocumentTitle(fname);
 

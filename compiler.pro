@@ -6,7 +6,7 @@
 #------------------------------------------------------------------------
 TEMPLATE = app
 TARGET   = dbase
-CONFIG  += debug
+CONFIG  += release
 
 QT = core gui widgets help network
 
@@ -121,7 +121,14 @@ DISTFILES += \
     source/help/index.html \
     source/help/test.html \
     source/help/printline.html \
-    source/help/append.html
+    source/help/append.html \
+    source/html/bewerbung.html \
+    source/html/style.css \
+    source/html/bewerber.xml \
+    source/html/bewerber.dtd \
+    source/html/bewerber.xsl \
+    source/html/index.html \
+    examples/Form1.frm
 
 LIBS += -L"/usr/local/lib64" -lstdc++
 LIBS += -L"/dbase" -lmod_dbase

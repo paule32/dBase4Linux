@@ -33,6 +33,7 @@ protected:
     void closeEvent(QCloseEvent   * event);
 
     void on_FileOpen(int state = 0);
+    void on_SaveFile();
     void on_AboutQt();
 
     void on_actionEinstellungen();
