@@ -26,6 +26,7 @@ MyEditor::MyEditor(QWidget *parent)
     on_cursorPositionChanged();
 }
 
+extern bool parseText(QString,int);
 void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
 {
     // for most widgets
@@ -33,12 +34,24 @@ void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
     // for QAbstractScrollArea and derived classes you would use:
     // QPoint globalPos = myWidget->viewport()->mapToGlobal(pos);
 
-    QMenu myMenu;
-    myMenu.addAction("insert template...");
-    // ...
+    QMenu myPopUp;
 
-    QAction* selectedItem = myMenu.exec(globalPos);
-    if (selectedItem)
+    myPopUp.addAction("Run ...");
+    myPopUp.addSeparator();
+    myPopUp.addAction("Insert template ...");
+    myPopUp.addSeparator();
+    myPopUp.addAction("Copy Text");
+    myPopUp.addAction("Paste");
+
+    QAction* selectedItem = myPopUp.exec(globalPos);
+
+    if (selectedItem->text() == QString("Run ...")) {
+        parseText(w->ui->editorWidget
+                   ->document()
+                   ->toPlainText(),
+        0);
+    }  else
+    if (selectedItem->text() == QString("Insert template ..."))
     {
         std::string temp =
 R"(** END HEADER -- Diese Zeile nicht löschen.

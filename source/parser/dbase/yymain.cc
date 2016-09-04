@@ -39,8 +39,16 @@
 #include <utility>
 #include <vector>
 
+#include "dbasevariables.h"
+#include "dbase_exception.h"
+
+#include "binary_op.h"
+#include "unary_op.h"
+#include "if_expr_op.h"
+
+#include "expression_ast.h"
+
 int lineno = 1;
-bool MissThrower = false;
 
 using namespace std;
 using namespace boost::spirit;
@@ -58,59 +66,10 @@ using boost::spirit::qi::eoi;
 
 using boost::phoenix::val;
 
+using namespace dBaseParser;
 namespace dBaseParser
 {
-    // --------------------------------
-    // exception class for don't match
-    // -------------------------------
-    class MydBaseMissException: public exception
-    {
-        virtual const char* what() const throw()
-        {
-            return "dBaseException occur.";
-        }
-    } dBaseMissException;
-
-    struct my_dbase_throw {
-        my_dbase_throw() { }
-        my_dbase_throw(int dummy) {
-            throw dBaseMissException;
-        }
-    };
-
-    // -----------------
-    // AST for dBase ...
-    // -----------------
-    struct binary_op;
-    struct unary_op;
     struct nil { };
-    //struct dBaseExpression;
-    struct class_op;
-
-    enum dBaseTypes {
-        unknown,
-        p_value,        // parameter
-        w_value,        // widget type
-        m_value,
-        c_value,
-        i_value         // int type
-    };
-    dBaseTypes dBaseType;
-    class dBaseVariables
-    {
-    public:
-        QString          data_name;
-        QString          data_name_parent;
-        dBaseTypes       data_type;
-        int              data_value_int;
-        QMyMainWindow *  data_value_widget;
-    };
-    QVector <dBaseVariables*> dynamics;
-    QVector <dBaseVariables*> app_parameter;    // application parameters (forms)
-
-    QVector <QString> vec_push_1;  // lhs object
-    QVector <QString> vec_push_2;  // new object
-    QVector <QString> vec_push_3;  // rhs object
 
     int getVariable(QString name)
     {
@@ -132,109 +91,18 @@ namespace dBaseParser
         }   return idx;
     }
 
-    struct expression_ast
-    {
-        typedef
-        boost::variant<
-              nil
-            , int
-            , double
-            , dBaseTypes
-            , std::string
-            , boost::recursive_wrapper<expression_ast>
-            , boost::recursive_wrapper<binary_op>
-            , boost::recursive_wrapper<unary_op>
-            , boost::recursive_wrapper<class_op>
-        >
-        type;
-        type expr;
-
-        expression_ast() : expr(nil()) { }
-
-        expression_ast(int dummy1, int dummy2, int dummy3) {
-            throw dBaseMissException;
-        }
-
-        template <typename Expr>
-        expression_ast(Expr const & expr)
-            : expr(expr) { }
-
-        expression_ast(
-              std::string const& oper
-            , std::string const& str1
-            , std::string const& str2);
-
-
-        expression_ast& operator += (expression_ast const & rhs);
-        expression_ast& operator -= (expression_ast const & rhs);
-        expression_ast& operator *= (expression_ast const & rhs);
-        expression_ast& operator /= (expression_ast const & rhs);
-    };
 
     expression_ast dast;
 
-    struct binary_op
+    expression_ast::expression_ast(
+          std::string    const& oper
+        , expression_ast const& aexp
+        , std::string    const& str2)
     {
-        binary_op(
-              char op
-            , expression_ast const & left
-            , expression_ast const & right)
-            : op(op)
-            , left(left)
-            , right(right) { }
-
-        char op;
-        expression_ast left;
-        expression_ast right;
-    };
-    struct unary_op
-    {
-        unary_op(
-            char op
-          , expression_ast const& subject)
-        : op(op), subject(subject) {}
-
-        char op;
-        expression_ast subject;
-    };
-
-    struct class_op
-    {
-        class_op(
-              std::string const& oper
-            , std::string const& cname
-            , std::string const& oname
-            , expression_ast const& co)
-            : oper(oper)
-            , class_cname(cname)
-            , class_oname(oname)
-            , class_owner(co)
-        {
-            QString str = class_oname.c_str();
-            QString ori = class_cname.c_str();
-
-            if (str.toLower().contains("form"))
-            {
-                if (getVariable(ori) < 1) {
-                    dBaseVariables *v    = new dBaseVariables;
-                    v->data_name         = ori;
-                    v->data_type         = w_value;
-                    v->data_value_widget = new QMyMainWindow;
-                    dynamics[getVariable(ori)] = v;
-                }   else {
-                    int o = getVariable(ori);
-                    dynamics[o]->data_type = w_value;
-                    dynamics[o]->data_value_widget = new QMyMainWindow;
-                }
-            }
-        }
-
-        std::string oper;
-        std::string class_cname;
-        std::string class_oname;
-
-        expression_ast class_owner;
-    };
+        QString str = oper.c_str();
+        expr = if_expr_op(oper, aexp, "if");
+        dast = expr;
+    }
 
     expression_ast::expression_ast  (
               std::string const& oper
@@ -245,6 +113,17 @@ namespace dBaseParser
         QString val = str1.c_str();
 
         static QString sstr1;
+
+        if (str == QString("addparameter1")) {
+            dBaseVariables *v = new
+            dBaseVariables;
+            v->data_name = val;
+            v->data_type = p_value;
+            v->data_type_extra = b_value;
+            v->data_value_bool = 0;
+            dynamics[getVariable(val)] = v;
+        }
+
         if (str == QString("create1class")) { sstr1 = val; }
         if (str == QString("create2class")) {
             expr = class_op(oper, sstr1.toStdString(), str1, *this);
@@ -407,7 +286,13 @@ namespace dBaseParser
 
         void operator()(class_op const& expr) const
         {
+            QMessageBox::information(w,"text parser","SUCCE");
             //boost::apply_visitor(*this, expr.class_owner);
+        }
+
+        void operator()(if_expr_op const& expr) const
+        {
+            QMessageBox::information(w,"text parser","EXPR1111");
         }
     };
 
@@ -553,6 +438,11 @@ namespace dBaseParser
       out << "class_op" << std::endl ;
       return out ;
     }
+    template<typename StreamT>
+    StreamT& operator<<(StreamT& out, if_expr_op const& item) {
+      out << "if_expr_op" << std::endl ;
+      return out ;
+    }
 
     template <typename Iterator, typename Lexer>
     struct dbase_grammar
@@ -608,9 +498,50 @@ namespace dBaseParser
             symsbols
             = ( comments
               | var_expr [ _val = qi::_1 ]
+              | ident_false_true
               | objective_form
               | class_definition
               )
+            ;
+
+            ident_false_true
+            = ((tok.identifier
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("ident_varname"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>("ident"))
+                    ])
+            >> *(char_('.') >> tok.identifier
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("ident_false_true"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(qi::_1))
+                    ]
+               )
+            >> tok.my_assign  >> ((tok.kw_false
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("ident_false"),
+                        phx::construct<std::string>("false"),
+                        phx::construct<std::string>("bool"))
+                    ])
+                    | (tok.kw_true
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("ident_true"),
+                        phx::construct<std::string>("true"),
+                        phx::construct<std::string>("bool"))
+                    ])
+                    )
+                )
+            ;
+
+            ident_function
+            = (tok.identifier >> *(char_('.') >> tok.identifier)
+            >> char_('(')
+            >> char_(')'))
             ;
 
             var_expr
@@ -624,7 +555,29 @@ namespace dBaseParser
             ;
 
             parameterwidget
-            = (tok.kw_parameter >> tok.identifier)
+            = ((tok.kw_parameter >> tok.identifier
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("addparameter1"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(qi::_1))
+                    ])
+              | (tok.kw_parameter >> tok.identifier
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("addparameter2"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(qi::_1))
+                    ]
+                    ) >> *(char_(',') >> tok.identifier
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("addparameter3"),
+                        phx::construct<std::string>(qi::_1),
+                        phx::construct<std::string>(qi::_1))
+                    ]
+                    )
+              )
             ;
 
             localparameter
@@ -637,9 +590,16 @@ namespace dBaseParser
             ;
 
             ifcondition
-            = (tok.kw_if >> char_('(') >> tok.identifier >> char_(')')
-            >> tok.kw_else
-            >> tok.kw_endif)
+            = (tok.kw_if >> (char_('(') >> expression >> char_(')')
+                    [
+                        phx::construct<expression_ast>(
+                        phx::construct<std::string>("ifexpr1"),
+                        phx::construct<expression_ast>(qi::_1),
+                        phx::construct<std::string>("expr"))
+                    ]
+                    )
+            >> *(ident_false_true | ident_function)  >> (tok.kw_else | tok.kw_endif)
+            >> *(ident_false_true | ident_function)  >> tok.kw_endif)
             ;
 
             comments
@@ -688,6 +648,8 @@ namespace dBaseParser
             localparameter.name("localparameter");
             parameterwidget.name("parameterwidget");
             newobject.name("newobject");
+            ident_function.name("ident_function");
+            ident_false_true.name("ident_false_true");
 
                     /*
             BOOST_SPIRIT_DEBUG_NODE(start);
@@ -713,7 +675,7 @@ namespace dBaseParser
                     , class_definition
                     , class_entries
                     , class_entry1
-                    , objective_form
+                    , objective_form, ident_false_true, ident_function
                     , ifcondition, localparameter, parameterwidget, newobject
                     ;
 
@@ -756,6 +718,8 @@ bool parseText(QString text, int mode)
 {
     namespace dp = dBaseParser;
 
+    dp::ast_print printer;
+
     dp::dynamics.clear();
 
     dp::vec_push_1.clear();
@@ -771,10 +735,32 @@ bool parseText(QString text, int mode)
     try {
         if (InitParseText(text.toStdString())) {
             QMessageBox::information(w,"text parser","SUCCESS");
-            if (dp::dynamics.size() < 0)
-            return true;
-            for (int o = 0; o <= dp::dynamics.size(); o++)
+
+            //if (dp::dynamics.size() < 0)
+            //return true;
+
+            printer(dp::dast);
+            int bool_value = 0;
+
+            for (int o = 0; o <= dp::dynamics.count(); o++)
             {
+                if (dp::dynamics[o]->data_type == dp::dBaseTypes::p_value) {
+                    dp::dBaseVariables *v =
+                    dp::dynamics[
+                    dp::getVariable(
+                    dp::dynamics[o]->data_name)]; o++;
+
+                    QString name = v->data_name;
+
+                    if (v->data_type == dp::dBaseTypes::b_value) {
+                        bool_value = v->data_value_bool;
+
+                        if (!bool_value)
+                        QMessageBox::information(w,"infor","false bool"); else
+                        QMessageBox::information(w,"infor","true bool");
+                    }
+                }
+
                 if (dp::dynamics[o]->data_type == dp::dBaseTypes::w_value) {
                 if (dp::dynamics[o]->data_value_widget != nullptr)
                     dp::dynamics[o]->data_value_widget->showModal();

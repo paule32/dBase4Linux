@@ -99,7 +99,14 @@ HEADERS += \
         $${HDRDIR}/update_dbase.h \
         $${HDRDIR}/update_thread.h \
     source/parser/dbase/qmymainwindow.h \
-        $${HDRDIR}/mainclass.h
+        $${HDRDIR}/mainclass.h \
+    source/parser/dbase/if_expr_op.h \
+    source/parser/dbase/expression_ast.h \
+    source/parser/dbase/dbase_exception.h \
+    source/parser/dbase/dbasevariables.h \
+    source/parser/dbase/binary_op.h \
+    source/parser/dbase/unary_op.h \
+    source/parser/dbase/class_op.h
 
 FORMS   += \
         $${SRCDIR}/forms/mainwindow.ui \
