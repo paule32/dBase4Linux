@@ -73,7 +73,8 @@ SOURCES += \
     source/parser/rfc/rfc_update_dbase.cc \
     source/dbase/update_thread.cc \
     source/parser/dbase/qmymainwindow.cc \
-    source/dbase/mainclass.cc
+    source/dbase/mainclass.cc \
+    source/parser/dbase/testcase/nstest1.cc
 
 HEADERS += \
 	$${HDRDIR}/mainwindow.h \
@@ -106,7 +107,9 @@ HEADERS += \
     source/parser/dbase/dbasevariables.h \
     source/parser/dbase/binary_op.h \
     source/parser/dbase/unary_op.h \
-    source/parser/dbase/class_op.h
+    source/parser/dbase/class_op.h \
+    source/parser/dbase/testcase/namespace.h \
+    source/parser/dbase/testcase/test1.h
 
 FORMS   += \
         $${SRCDIR}/forms/mainwindow.ui \

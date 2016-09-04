@@ -35,7 +35,6 @@ QVector <dBaseVariables*> app_parameter;    // application parameters (forms)
 QVector <QString> vec_push_1;  // lhs object
 QVector <QString> vec_push_2;  // new object
 QVector <QString> vec_push_3;  // rhs object
-}  // namespace dBaseParser
 
+} // namespace
 #endif // DBASEVARIABLES_H
-

@@ -17,7 +17,6 @@
 #include "expression_ast.h"
 #include "dbasevariables.h"
 
-using namespace dBaseParser;
 namespace dBaseParser {
 struct if_expr_op {
     if_expr_op(
@@ -52,6 +51,9 @@ struct if_expr_op {
         }
     }
 
+    // dummy
+    if_expr_op();
+
     std::string oper;
     std::string name;
 
@@ -61,6 +63,5 @@ struct if_expr_op {
     expression_ast right_expr;
 };
 }
-
 #endif // IF_EXPR_OP_H
 

@@ -18,6 +18,7 @@
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/fusion/include/std_pair.hpp>
 #include <boost/variant/recursive_variant.hpp>
+#include <boost/variant/recursive_wrapper.hpp>
 #include <boost/variant/apply_visitor.hpp>
 #include <boost/variant/get.hpp>
 
@@ -91,6 +92,6 @@ struct expression_ast
     expression_ast& operator *= (expression_ast const & rhs);
     expression_ast& operator /= (expression_ast const & rhs);
 };
-}
 
+} // namespace
 #endif // EXPRESSION_AST_H

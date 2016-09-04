@@ -13,7 +13,6 @@
 #include "dbasevariables.h"
 #include "expression_ast.h"
 
-using namespace dBaseParser;
 namespace dBaseParser {
 struct class_op
 {
@@ -35,7 +34,7 @@ struct class_op
             if (getVariable(ori) < 1) {
                 dBaseVariables *v    = new dBaseVariables;
                 v->data_name         = ori;
-                v->data_type         = w_value;
+                v->data_type         = dBaseTypes::w_value;
                 v->data_value_widget = new QMyMainWindow;
                 dynamics[getVariable(ori)] = v;
             }   else {
@@ -52,7 +51,5 @@ struct class_op
 
     expression_ast class_owner;
 };
-}  // namespace dBaseParser
-
+}
 #endif // CLASS_OP_H
-

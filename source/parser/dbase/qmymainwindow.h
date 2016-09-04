@@ -6,6 +6,7 @@
 #include <QEventLoop>
 #include "includes/mainwindow.h"
 
+namespace dBaseParser {
 class QMyMainWindow : public QWidget
 {
     Q_OBJECT
@@ -16,5 +17,5 @@ signals:
 
 public slots:
 };
-
+} // namespace
 #endif // QMYMAINWINDOW_H

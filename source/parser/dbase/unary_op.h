@@ -3,7 +3,6 @@
 
 #include "expression_ast.h"
 
-using namespace dBaseParser;
 namespace dBaseParser {
 struct unary_op
 {
@@ -15,6 +14,5 @@ struct unary_op
     char op;
     expression_ast subject;
 };
-}  // namespace dBaseParser
-
+} // namespace
 #endif // UNARY_OP_H

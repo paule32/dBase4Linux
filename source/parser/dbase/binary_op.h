@@ -1,6 +1,7 @@
 #ifndef BINARY_OP_H
 #define BINARY_OP_H
 
+#include "dbasevariables.h"
 #include "expression_ast.h"
 
 namespace dBaseParser {
@@ -18,7 +19,6 @@ struct binary_op
     expression_ast left;
     expression_ast right;
 };
-}
+}   // namespace dBaseParser;
 
 #endif // BINARY_OP_H
-

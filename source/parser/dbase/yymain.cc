@@ -66,7 +66,6 @@ using boost::spirit::qi::eoi;
 
 using boost::phoenix::val;
 
-using namespace dBaseParser;
 namespace dBaseParser
 {
     struct nil { };
@@ -92,7 +91,7 @@ namespace dBaseParser
     }
 
 
-    expression_ast dast;
+    expression_ast expr;
 
     expression_ast::expression_ast(
           std::string    const& oper
@@ -100,8 +99,7 @@ namespace dBaseParser
         , std::string    const& str2)
     {
         QString str = oper.c_str();
-        expr = if_expr_op(oper, aexp, "if");
-        dast = expr;
+        expr_ast.expr = if_expr_op(oper, aexp, "if");
     }
 
     expression_ast::expression_ast  (
@@ -126,8 +124,7 @@ namespace dBaseParser
 
         if (str == QString("create1class")) { sstr1 = val; }
         if (str == QString("create2class")) {
-            expr = class_op(oper, sstr1.toStdString(), str1, *this);
-            dast = expr;
+            expr_ast.expr = class_op(oper, sstr1.toStdString(), str1, *this);
         }
 
         if (str == QString("@app@parameter")) {
@@ -143,36 +140,31 @@ namespace dBaseParser
             vec_push_1 << val;
         }
         else {
-            expr = class_op(oper, str1, str2, *this);
-            dast = expr;
+            expr_ast.expr = class_op(oper, str1, str2, *this);
         }
     }
 
     expression_ast& expression_ast::operator += (expression_ast const& rhs)
     {
-        expr = binary_op('+', expr, rhs);
-        dast = expr;
+        expr = binary_op('+', expr_ast, rhs);
         return *this;
     }
 
     expression_ast& expression_ast::operator -= (expression_ast const& rhs)
     {
-        expr = binary_op('-', expr, rhs);
-        dast = expr;
+        expr = binary_op('-', expr_ast, rhs);
         return *this;
     }
 
     expression_ast& expression_ast::operator *= (expression_ast const& rhs)
     {
-        expr = binary_op('*', expr, rhs);
-        dast = expr;
+        expr = binary_op('*', expr_ast, rhs);
         return *this;
     }
 
     expression_ast& expression_ast::operator /= (expression_ast const& rhs)
     {
-        expr = binary_op('/', expr, rhs);
-        dast = expr;
+        expr = binary_op('/', expr_ast, rhs);
         return *this;
     }
 
@@ -187,8 +179,7 @@ namespace dBaseParser
 
         expression_ast operator()(expression_ast & expr) const
         {
-            dast = expression_ast(unary_op('-', expr));
-            return dast;
+            expr = expression_ast(unary_op('-', expr));
         }
     };
 
@@ -203,11 +194,11 @@ namespace dBaseParser
 
         void operator()(nil) const {
             cout << "done." << endl;
-            dast.expr = nil();
+            expr = nil();
         }
         void operator()(int n) const {
             std::cout << n;
-            dast.expr  = n;
+            expr  = n;
 
             if (int c = getVariable("onnn") < 1) {
                 dBaseVariables *v = new dBaseVariables;
@@ -237,21 +228,21 @@ namespace dBaseParser
         {
             int lval, rval, value;
 
-            std::cout << "op" << expr.op << "(";
-            dast = expr.left;
+            std::cout << "op" << expr.op << "(" <<
+            expr.left.expr;
             boost::apply_visitor(*this, expr.left.expr);
             try {
-                lval = boost::get<int>(dast.expr);
+                lval = boost::get<int>(expr);
             }   catch (...) {
                 lval = dynamics[0]->data_value_int;
             }
 
 
             std::cout << ", ";
-            dast = expr.right;
+            expr = expr.right;
             boost::apply_visitor(*this, expr.right.expr);
             try {
-                rval = boost::get<int>(dast.expr);
+                rval = boost::get<int>(expr);
             }   catch (...) {
                 rval = dynamics[0]->data_value_int;
             }
@@ -274,7 +265,7 @@ namespace dBaseParser
                 dynamics[c]->data_type      = i_value;
                 dynamics[c]->data_value_int = value;
             }
-            dast.expr = value;
+            expr = value;
         }
 
         void operator()(unary_op const& expr) const
@@ -691,7 +682,7 @@ bool InitParseText(std::string text)
     if (data.size() < 1)
     return false;
 
-    using dBaseParser::expression_ast;
+    namespace dp = dBaseParser;
 
     typedef std::string::iterator base_iterator_type;
     typedef lex::lexertl::token<
@@ -699,9 +690,9 @@ bool InitParseText(std::string text)
     > token_type;
     typedef lex::lexertl::actor_lexer<token_type> lexer_type;
 
-    typedef dBaseParser::dbase_tokens<lexer_type> dbase_tokens;
+    typedef dp::dbase_tokens<lexer_type> dbase_tokens;
     typedef dbase_tokens::iterator_type iterator_type;
-    typedef dBaseParser::dbase_grammar<iterator_type, dbase_tokens::lexer_def> dbase_grammar;
+    typedef dp::dbase_grammar<iterator_type, dbase_tokens::lexer_def> dbase_grammar;
 
     dbase_tokens  tokens;
     dbase_grammar dbase(tokens);
@@ -710,7 +701,7 @@ bool InitParseText(std::string text)
     iterator_type iter    = tokens.begin(it, data.end());
     iterator_type end     = tokens.end();
 
-    expression_ast ast;
+    dp::expression_ast ast;
     return qi::parse(iter, end, dbase, ast);
 }
 
@@ -739,7 +730,7 @@ bool parseText(QString text, int mode)
             //if (dp::dynamics.size() < 0)
             //return true;
 
-            printer(dp::dast);
+            printer(dp::expr);
             int bool_value = 0;
 
             for (int o = 0; o <= dp::dynamics.count(); o++)

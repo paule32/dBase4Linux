@@ -28,7 +28,6 @@ struct my_dbase_throw {
         throw dBaseMissException;
     }
 };
-}
-
+}   // namespace
 #endif // DBASE_EXCEPTION_H
 
