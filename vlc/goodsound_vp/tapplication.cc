@@ -23,7 +23,7 @@ TApplication::~TApplication()
     SDL_Quit();
 }
 
-int TApplication::run()
+int TApplication::run(TPainter paint)
 {
     SDL_Event event;
 

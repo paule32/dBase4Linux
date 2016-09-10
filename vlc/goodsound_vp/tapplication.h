@@ -12,6 +12,7 @@
 
 #include "tfont.h"
 #include "tcolor.h"
+#include "tpainter.h"
 
 class TApplication //: public QMainWindow
 {
@@ -20,7 +21,7 @@ public:
     explicit TApplication();
     ~TApplication();
 
-    int run();
+    int run(TPainter paint);
 
     SDL_Surface * screen;
 };

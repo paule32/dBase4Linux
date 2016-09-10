@@ -11,11 +11,11 @@ class TPainter
 {
 public:
     TPainter();
-    void begin();
-    void end();
     void drawText(TFont font, int xpos, int ypos, std::string str);
 protected:
     std::vector<TGraphicsItem*> objects;
+private:
+    void paint(SDL_Surface *surface);
 };
 
 #endif // TPAINTER_H
