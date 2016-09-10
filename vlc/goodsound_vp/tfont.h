@@ -12,10 +12,10 @@ class TFont
 {
 public:
     TFont(std::string name, int size=22);
-    TFont() {}
+    TFont();
     ~TFont();
 
-    TTF_Font * font;
+    TTF_Font *font;
 
     TColor fgColor;
     TColor bgColor;

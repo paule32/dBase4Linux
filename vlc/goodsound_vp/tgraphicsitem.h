@@ -5,9 +5,12 @@
 #include <typeinfo>
 
 #include "SDL.h"
+
+#include "tapplication.h"
 #include "tfont.h"
 #include "tcolor.h"
 
+class TApplication;
 class TGraphicsItem
 {
 public:
@@ -17,6 +20,7 @@ public:
 class TGraphicsText: public TGraphicsItem
 {
 public:
+    TGraphicsText() { }
     void draw();
 
     TFont font;
@@ -24,10 +28,10 @@ public:
     int ypos;
     std::string str;
 
-    SDL_Color foregroundColor;
-    SDL_Color backgroundColor;
+    SDL_Color fgColor;
+    SDL_Color bgColor;
 
-    SDL_Surface * textSurface;
+    SDL_Surface * surface;
 };
 
 #endif // TGRAPHICSITEM_H

@@ -7,13 +7,16 @@ TPainter::TPainter()
     objects.clear();
 }
 
-void TPainter::paint(SDL_Surface *surface)
+void TPainter::paint(TApplication &app)
 {
-    TGraphicsItem *item = objects.back();
+    TGraphicsText *item = dynamic_cast<TGraphicsText*>(objects.back());
     item->draw();
+
+    SDL_Rect textLocation = { item->xpos, item->ypos, 0, 0 };
+    SDL_BlitSurface(item->surface, NULL, app.screen, &textLocation);
 }
 
-void TPainter::drawText(TFont font, int xpos, int ypos, std::string str)
+void TPainter::drawText(TFont &font, int xpos, int ypos, std::string str)
 {
     TGraphicsText *text = new TGraphicsText;
     text->xpos = xpos;

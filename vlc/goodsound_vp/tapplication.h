@@ -14,6 +14,7 @@
 #include "tcolor.h"
 #include "tpainter.h"
 
+class TPainter;
 class TApplication //: public QMainWindow
 {
     //Q_OBJECT
@@ -21,9 +22,10 @@ public:
     explicit TApplication();
     ~TApplication();
 
-    int run(TPainter paint);
+    int run(TPainter &paint);
 
     SDL_Surface * screen;
+    TPainter * paint;
 };
 
 #endif // TAPPLICATION_H

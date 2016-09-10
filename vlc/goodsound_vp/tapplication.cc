@@ -23,7 +23,7 @@ TApplication::~TApplication()
     SDL_Quit();
 }
 
-int TApplication::run(TPainter paint)
+int TApplication::run(TPainter &paint)
 {
     SDL_Event event;
 
@@ -37,8 +37,11 @@ int TApplication::run(TPainter paint)
                 gameRunning = 0;
             }
         }
+
         SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
-        //SDL_BlitSurface(textSurface, NULL, app.screen, &textLocation);
+        //
+        paint.paint(*this);
+        //
         SDL_Flip(screen);
     }
     return 0;
