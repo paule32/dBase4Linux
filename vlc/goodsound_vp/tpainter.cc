@@ -10,7 +10,7 @@ TPainter::TPainter()
 void TPainter::paint(SDL_Surface *surface)
 {
     TGraphicsItem *item = objects.back();
-    item->draw();  // <--
+    item->draw();
 }
 
 void TPainter::drawText(TFont font, int xpos, int ypos, std::string str)
