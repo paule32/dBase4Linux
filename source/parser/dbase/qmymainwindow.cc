@@ -1,5 +1,6 @@
 #include "qmymainwindow.h"
 
+namespace dBaseParser {
 QMyMainWindow::QMyMainWindow(QWidget *parent) : QWidget(parent)
 {
     resize(100,100);
@@ -14,4 +15,5 @@ void QMyMainWindow::showModal()
     QEventLoop loop;
     QObject::connect(this, SIGNAL(destroyed()), & loop, SLOT(quit()));
     loop.exec();
+}
 }
