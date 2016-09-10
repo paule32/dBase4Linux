@@ -37,9 +37,9 @@ int TApplication::run()
                 gameRunning = 0;
             }
         }
-        //SDL_FillRect(app.screen, NULL, SDL_MapRGB(app.screen->format, 0, 0, 0));
+        SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
         //SDL_BlitSurface(textSurface, NULL, app.screen, &textLocation);
-        //SDL_Flip(screen);
+        SDL_Flip(screen);
     }
     return 0;
 }
