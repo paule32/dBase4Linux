@@ -1,18 +1,9 @@
 #ifndef TCOMPONENT_H
 #define TCOMPONENT_H
 
-#include <QObject>
-
-namespace classes {
-class TComponent : public QObject
-{
-    Q_OBJECT
+class TComponent {
 public:
-    explicit TComponent(QObject *parent = 0);
-
-signals:
-
-public slots:
+    explicit TComponent();
 };
-}
+
 #endif // TCOMPONENT_H

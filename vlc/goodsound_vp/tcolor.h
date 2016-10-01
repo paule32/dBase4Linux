@@ -6,8 +6,8 @@
 class TColor
 {
 public:
-    TColor(int rc, int gc, int bc);
-    TColor() { }
+    TColor(Uint8 rc, Uint8 gc, Uint8 bc);
+    TColor();
     SDL_Color sdl_color;
 };
 

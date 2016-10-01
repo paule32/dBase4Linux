@@ -2,8 +2,7 @@ TEMPLATE = app
 
 CONFIG += console
 CONFIG -= app_bundle
-
-QT = core gui widgets help network
+CONFIG -= qt
 
 TOPDIR=$$PWD
 SRCDIR=$${TOPDIR}/source
@@ -25,6 +24,7 @@ INCLUDEPATH = \
     $${TOPDIR}/.uic
 
 QMAKE_CXXFLAGS += \
+    -fpermissive \
     -frtti -fexceptions  -std=c++17
 
 LIBS += -L"/usr/lib/x86-64_linux-gnu" -lSDL -lSDL2 -lSDL_ttf
@@ -42,7 +42,8 @@ SOURCES += \
     tfont.cc \
     tcolor.cc \
     tpainter.cc \
-    tgraphicsitem.cc
+    tgraphicsitem.cc \
+    ttimer.cc
 
 FORMS +=
 
@@ -56,7 +57,10 @@ HEADERS += \
     tfont.h \
     tcolor.h \
     tpainter.h \
-    tgraphicsitem.h
+    tgraphicsitem.h \
+    ttimer.h \
+    cam0_src.h \
+    cam1_src.h
 
 DISTFILES += \
     getwin.sh

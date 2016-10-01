@@ -1,13 +1,3 @@
-#include "includes/mainwindow.h"
-#include "dBaseWindow.h"
-
-extern "C" {
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-}
-
 #include <iostream>
 #include <cstddef>
 #include <memory>
@@ -20,16 +10,48 @@ extern "C" {
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-#include <type_traits>
-
-#include "symbol.h"
-#include "skipper.h"
 
 using namespace std;
 
 int lineno = 1;
-std::string var_name;
 
+template <class T>
+class SafeQueue
+{
+public:
+    SafeQueue(void)
+    : q()
+    , m()
+    , c()
+    {}
+
+    ~SafeQueue(void)
+    {}
+
+    void push(T t)
+    {
+        std::lock_guard<std::mutex> lock(m);
+        q.push(t);
+        c.notify_one();
+    }
+
+    T pop(void)
+    {
+        std::unique_lock<std::mutex> lock(m);
+        while(q.empty())
+        {
+        c.wait(lock);
+        }
+        T val = q.front();
+        q.pop();
+        return val;
+    }
+
+private:
+    std::queue<T> q;
+    mutable std::mutex m;
+    std::condition_variable c;
+};
 
 // --------------------------------
 // exception class for don't match
@@ -54,81 +76,6 @@ enum dBaseTypes {
     c_value,
     i_value         // int type
 };
-
-
-struct Encod {       // contains mnemonic information
-    char  Mnem [8];  //   The mnemonic
-    char  Byte1[9];  //   Initial byte information
-    uchar OpType;    //   The operand type
-    uchar Byte2;     //   The second byte or reg field
-    uchar Mclass;    //   The class of mneomoic
-};
-
-const int _BX = 1;
-const int _SI = 2;
-const int _DI = 4;
-const int _BP = 8;
-
-enum RegList {
-    EAX = 'EAX', EBX = 'EBX', ECX = 'ECX', EDX = 'EDX', ESP = 'ESP', EBP = 'EBP', ESI = 'ESI', EDI = 'EDI',
-    AX  = 'AX' , BX  = 'BX' , CX  = 'CX' , DX  = 'DX' , SP  = 'SP' , BP  = 'BP' , SI  = 'SI' , DI  = 'DI' ,
-    AH  = 'AH' , BH  = 'BH' , CH  = 'CH' , DH  = 'DH' ,
-    AL  = 'AL' , BL  = 'BL' , CL  = 'CL' , DL  = 'DL'
-};
-
-const int   MaxReg = 24;
-
-const uchar AddrMode_1 = _BX + _SI;
-const uchar AddrMode_2 = _BX + _DI;
-const uchar AddrMode_3 = _BP + _SI;
-const uchar AddrMode_4 = _BP + _DI;
-const uchar AddrMode_5 = _SI;
-const uchar AddrMode_6 = _DI;
-const uchar AddrMode_7 = _BP;
-const uchar AddrMode_8 = _BX;
-
-// ---------------------------------------------------------------------------
-// Each instruction has an operand-type associated with it.  I have provided a
-// sample instruction in comments to demonstrate the differences among them.
-// ---------------------------------------------------------------------------
-const int NO_OPERAND =            0;   // NOP
-const int REG_MEM_REGISTER =      1;   // MOV BX,ES:[BP+5+SI] or MOV CX,DX
-const int IMMEDIATE_AL_AX =       2;   // CMP AX,56
-const int IMMEDIATE_REG_MEM =     3;   // CMP BX,78 or CMP SS:[BP+8],0Ah
-const int DIRECT_IN_SEGMENT =     4;   // CALL 567H
-const int INDIRECT_IN_SEGMENT =   5;   // CALL [78]
-const int DIRECT_INTRASEGMENT =   6;   // JMP 6543:8765
-const int INDIRECT_INTRASEGMENT = 7;   // JMP FAR [BX]
-const int REGISTER_MEMORY =       8;   // PUSH BL or PUSH ES:[BX]
-const int A16_BIT_REGISTER =      9;   // PUSH BX
-const int ESC =                  10;   // ESC ES:[BP+DI+7],101011b
-const int IMMEDIATE_PORT =       11;   // IN AL,0ABCh
-const int PORT_ADDRESS_IN_DX =   12;   // IN AL,DX
-const int INT =                  13;   // INT 67H or INT 3
-const int EIGHT_BIT_REL =        14;   // JL 90 or JMP SHORT 90
-const int MEMORY_AL_AX =         15;   // MOV ES:[SI],AL
-const int AL_AX_MEMORY =         16;   // MOV AX,CS:[DI]
-const int REG_MEM_SR =           17;   // MOV BX,ES or MOV [2],SS
-const int SR_REG_MEM =           18;   // MOV ES,BX or MOV SS,[2]
-const int SEGMENT_REGISTER =     19;   // PUSH ES
-const int ANOTHER_INSTRUCTION =  20;   // REP MOVSB (MOVSB is the other instruction)
-const int RET =                  21;   // RET or RET 6
-const int IMMEDIATE_REGISTER =   22;   // MOV BX,67
-
-struct MopCodes {
-    char   meno[10];    // menomic
-    char   opmen[10];   // ...
-    ushort mtype;       // machine type 8/16/32 bit
-    int    op;          // opcode
-} _MopCodes[] = {
-    { "add", "al" ,  8, 0x04   },    // add al, 1-255        ; 0x04 + n(1-255)
-    { "add", "ah" ,  8, 0x80c4 },    // add ah, 1-255        ;  --
-    { "add", "ax" , 16, 0x6605 },    // add ax, 256-65535
-    { "add", "eax", 32, 0x05   },    // add eax, 32-bit -> + 0x01010000
-    { "add", "rax", 64, 0x4805 },    // add rax, 64-bit -> + 0x01010000
-    { "nop", ""   ,  0, 0x90   }     // nop
-};
-
 
 class dBaseStmt {
 public:
@@ -316,16 +263,15 @@ bool eval()
 const int TOKEN_ERROR  = -1;
 const int TOKEN_SYMBOL =  1;
 const int TOKEN_NUMBER =  2;
-const int TOKEN_PARAMETER = 3;
-const int TOKEN_CLASS  =  4;
+const int TOKEN_CLASS  =  3;
 
 std::map<std::string, int> token_list = {
-    { "class", TOKEN_CLASS },
-    { "parameter", TOKEN_PARAMETER }
+    { "class", TOKEN_CLASS }
 };
 
 std::string token;
 std::string sourcecode;
+
 int spos = -1;
 
 int skip(int c)
@@ -337,7 +283,6 @@ int skip(int c)
         ++lineno;
         return c;
     }
-    return -1;
 }
 
 int check_skip()
@@ -348,157 +293,6 @@ int check_skip()
     }
     return c;
 }
-
-// ---------------------------------
-// a parser base class for dBase ...
-// ---------------------------------
-#ifdef template_dbase_parser2
-const  int PARSER_DBASE = 1;
-class dBase;
-
-template <class T>
-class ParserCommon {
-public:
-    T& operator = (const T& src) {
-        sourcecode  = src.sourcecode;
-        parser_type = src.parser_type;
-    }
-
-    int parser_type;
-};
-
-class dBase {
-public:
-    dBase() { }
-    dBase(std::string src) { cout << "aaaaaaaa" << endl; }
-
-    bool dbase_handle_white_space()
-    {
-        while (1) {
-            int c = sourcecode[++spos];
-            if (c == ' '  || c == '\t') continue; else
-            if (c == '\n' || c == '\r') {
-                ++lineno;
-                continue;
-            }
-            else {
-                break;
-            }
-        }
-        return true;
-    }
-
-    bool dbase_handle_symbol(int ch = 0)
-    {
-        while (1) {
-            int c = sourcecode[++spos];
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_')
-            {
-                token = c;
-                while (1)
-                {
-                    c = sourcecode[++spos];
-                    if (spos > sourcecode.length()) {
-                        //throw dBaseMissException;
-                        break;
-                    }
-                    if (c == ' '  || c == '\t') { return true; }
-                    if (c == '\n' || c == '\r') {
-                        ++lineno;
-                        return true;;
-                    }
-                    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-                    ||  (c >= '0' && c <= '9') || (c == '_')) {
-                        token += c;
-                        continue;
-                    }
-                }
-            }
-            else return false;
-        }        return false;
-    }
-
-    bool dbase_handle_char(char ch) {
-        return dbase_handle_white_space();
-    }
-};
-
-template <class T>
-class CharParser {
-public:
-    CharParser<T>() { }
-    CharParser<T> operator () (char ch) {
-        if (typeid(T) == typeid(dBase)) {
-            cout << "char:  " << ch << endl;
-            dBase *db  = new dBase;
-            int result = db->dbase_handle_char(ch);
-            delete db;
-        }
-        return *this;
-    }
-};
-
-template <class T>
-class Parser: public ParserCommon<T>, public dBase {
-public:
-    Parser() {}
-    Parser<T>(std::string src) {
-        sourcecode  = src;
-    }
-    bool start(void);
-    Parser<T> operator << (Parser<T> o) {
-        cout << "opser" << endl;
-    }
-    Parser<T> operator << (Skipper<T> skip) {
-        if (typeid(T) == typeid(dBase))  {  }
-        return *this;
-    }
-    Parser<T> operator << (Symbol<T> sym) {
-        if (typeid(T) == typeid(dBase))  { }
-        return *this;
-    }
-    Parser<T> operator << (CharParser<T> sym) {
-        if (typeid(T) == typeid(dBase))  {    }
-        return *this;
-    }
-};
-
-template <class T>
-bool Parser<T>::start(void)
-{
-    QMessageBox::information(w,"ssss","classsler");
-    return true;
-}
-
-namespace dBaseParser {
-Skipper    <dBase> skip;
-Symbol     <dBase> symbol;
-CharParser <dBase> char_;
-}
-
-bool parseCode(std::string src)
-{
-    using namespace dBaseParser;
-    Parser<dBase> g(src);
-
-    g << skip << symbol(std::string("zuulu"))
-      << skip << char_('=')
-      << skip;
-
-    try {
-        bool result = g.start();
-        if (result)
-        QMessageBox::information(w,"text parser","SUCCESS"); else
-        QMessageBox::information(w,"text parser","ERROR");
-
-        return result;
-    }
-    catch (exception& e) {
-        QMessageBox::information(w,"parser error",e.what());
-        return false;
-    }   return false;
-}
-#endif
 
 int skip_white_space()
 {
@@ -520,7 +314,6 @@ int skip_white_space()
             continue;
         }
 
-        if (c == ';') return ';';
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_')
         {
             token = c;
@@ -528,19 +321,14 @@ int skip_white_space()
             {
                 c = sourcecode[++spos];
                 if (spos > sourcecode.length()) {
-                    throw dBaseMissException;
+                    //throw dBaseMissException;
                     break;
-                }
-                if (c == ' '  || c == '\t') goto etok;
-                if (c == '\n' || c == '\r') {
-                    ++lineno;
-                    goto etok;
                 }
                 if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
                 ||  (c >= '0' && c <= '9') || (c == '_')) {
                     token += c;
                 }   else {
-                    etok:
+                    --spos;
                     for(auto const &atoken : token_list)
                     {
                         if (atoken.first == token)
@@ -549,6 +337,7 @@ int skip_white_space()
                 }
             }
         }
+
 
         else if (c == '0') {
             token = c;
@@ -576,7 +365,7 @@ int skip_white_space()
                             continue;
                         }   else {
                             --spos;
-                            //return skip(TOKEN_NUMBER);
+                            return skip(TOKEN_NUMBER);
                         }
                     }
                     return TOKEN_ERROR;
@@ -615,7 +404,7 @@ int skip_white_space()
                     continue;
                 }   else {
                     --spos;
-                    //return skip(TOKEN_NUMBER);
+                    return skip(TOKEN_NUMBER);
                 }
             }
             cout << "ME: " << token << endl;
@@ -728,7 +517,7 @@ int skip_white_space()
                                 token = std::string("-") + token;
                             }
                         }
-                        if ((c >= '0' && c <= '9') || (c == '.')) {
+                        if ((c >= '0' && c <= '9' || c == '.')) {
                             token += c;
                             continue;
                         }
@@ -764,7 +553,7 @@ int skip_white_space()
                 token += c;
                 while (1) {
                     c = sourcecode[++spos];
-                    if ((c >= '0' && c <= '9') || (c == '.')) {
+                    if (c >= '0' && c <= '9' || c == '.') {
                         token += c;
                         continue;
                     }   else
@@ -791,7 +580,6 @@ int skip_white_space()
 
         if (c == '=') break;
         if (c == '+') break;
-        if (c == ',') break;
 
     }
     return c;
@@ -805,17 +593,22 @@ bool expr(void)
     }   return true;
 }
 
+
+std::string var_name;
+SafeQueue<double> expr_queue;
+
 double get_expr(double pre)
 {
     double prev  = 0.00;
     double aprev = 0.00;
     double pprev = 0.00;
 
+//    auto exp1 = new dBaseVariable(var_name,pre);
+//    stmt.push_back(exp1);
     prev = atof(token.c_str());
-    int c;
 
     n1:
-    c = skip_white_space();
+    int c = skip_white_space();
     if (c == '+')
     {
         if (expr())
@@ -1005,91 +798,29 @@ double get_expr(double pre)
 bool parse_code(std::string src)
 {
     sourcecode = src;
-    int c;
-
     while (1)
     {
-        c = skip_white_space();
+        int c = skip_white_space();
         if (c == TOKEN_SYMBOL) {
             var_name = token;
             c  = skip_white_space();
             if (c == '=')
             {
-                QMessageBox::information(w,"1212121","var");
-                if (expr())  {
-                    cout << "222" << endl;
-                    double res = get_expr(atof(token.c_str()));
-                    cout << "444" << endl;
-                    cout << var_name << " = " << res << endl;
-                    continue;
+                while (1)
+                {
+                    if (expr())  {
+                        double res = get_expr(atof(token.c_str()));
+                        cout << var_name << " = " << res << endl;
+                        return true;
+                    }
                 }
             }
-            else break;
         }
-        else if (c == TOKEN_PARAMETER) {
-            QMessageBox::information(w,"text parser","parameter");
-            c = skip_white_space();
-            if (c == TOKEN_SYMBOL) {
-                QMessageBox::information(w,"text parser","var");
-                continue;
-            }
-            else break;
-        }
-        else
-        break;
     }
-
-    return true ;
+    return false;
 }
 
-void Capitalize(std::string &str)
-{
-    int i = 0;
-    int c;
-    while (str[i]) {
-        c = str[i];
-        str[i] = tolower(c);
-        i++;
-    }
-}
-
-static FILE *AsmBinOutput = nullptr;
-
-void assemble_code(FILE *f, std::string code)
-{
-    sourcecode = code;
-    int c;
-    while (1) {
-        c = skip_white_space();
-        if (c == ';') {
-            cout << "comment" << endl;
-        }
-        else break;
-    }
-}
-
-bool Assemble(void)
-{
-    std::string code = R"(
-;
-; test comment
-;
-    add al, 2   ; comment after instruction
-
-)";
-
-    if ((AsmBinOutput = fopen("a.out","w+b")) == NULL)
-    {
-        QMessageBox::information(w,"File Open Error","Output file could not be open.");
-        return false;
-    }
-
-    cout << "putzi" << endl;
-    assemble_code(AsmBinOutput,code);
-    fclose(AsmBinOutput);
-}
-
-bool parseText(QString text, int mode)
+int main()
 {
     std::string source_code = R"(
 
@@ -1104,10 +835,10 @@ Azrael = -1.2 + 0.4 //+ 6 - 7 - 2 - 2 + 2 + 3
 
 )";
 
-    return Assemble();
+    bool result = parse_code(source_code);
+    if (result)
+    cout << "SUCCESS" << endl; else
+    cout << "ERROR"   << endl;
 
-    //return parse_code(source_code);
-
-    //Parser<dBase> parse(text.toStdString());
-
+    return 0;
 }

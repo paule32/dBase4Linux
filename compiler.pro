@@ -35,6 +35,9 @@ QMAKE_CXXFLAGS += \
         -Wno-write-strings \
         -Wno-extra \
         -Wno-reorder \
+        -Wno-multichar \
+        -Wno-uninitalized \
+        -Wno-sign-compare \
         -Wunused-function \
         -Woverloaded-virtual -fpermissive \
         -ftemplate-depth=400 \
@@ -72,9 +75,10 @@ SOURCES += \
     source/dbase/update_dbase.cc \
     source/parser/rfc/rfc_update_dbase.cc \
     source/dbase/update_thread.cc \
-    source/parser/dbase/qmymainwindow.cc \
     source/dbase/mainclass.cc \
-    source/parser/dbase/testcase/nstest1.cc
+    source/parser/dbase/testcase/nstest1.cc \
+    source/parser/dbase/dbaseWindow.cc \
+    source/parser/dbase/type.cc
 
 HEADERS += \
 	$${HDRDIR}/mainwindow.h \
@@ -99,7 +103,6 @@ HEADERS += \
         $${HDRDIR}/settings_dialog.h \
         $${HDRDIR}/update_dbase.h \
         $${HDRDIR}/update_thread.h \
-    source/parser/dbase/qmymainwindow.h \
         $${HDRDIR}/mainclass.h \
     source/parser/dbase/if_expr_op.h \
     source/parser/dbase/expression_ast.h \
@@ -109,7 +112,11 @@ HEADERS += \
     source/parser/dbase/unary_op.h \
     source/parser/dbase/class_op.h \
     source/parser/dbase/testcase/namespace.h \
-    source/parser/dbase/testcase/test1.h
+    source/parser/dbase/testcase/test1.h \
+    source/parser/dbase/dBaseWindow.h \
+    source/parser/dbase/type.h \
+    source/parser/dbase/skipper.h \
+    source/parser/dbase/symbol.h
 
 FORMS   += \
         $${SRCDIR}/forms/mainwindow.ui \

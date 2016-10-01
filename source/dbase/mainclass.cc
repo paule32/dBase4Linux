@@ -12,12 +12,13 @@ MyMainClass::MyMainClass() {
     w->ui->editorWidget->setFocus();
     w->show();
 
+    /*
     QToolBar * toolBar= new QToolBar("Main Window Tool Bar");
     toolBar->insertAction(0, new PushButtonAction(QIcon(":/Refresh.gif"), "Refresh", toolBar));
     toolBar->addAction(QIcon(":/First.gif"), "FirstAction");
     toolBar->addAction(QIcon(":/Last.gif"), "LastAction");
     toolBar->insertAction(0, new PushButtonAction(QIcon(":/start.gif"), "Start...", toolBar));
 
-    w->addToolBar(Qt::TopToolBarArea, toolBar);
+    w->addToolBar(Qt::TopToolBarArea, toolBar);*/
     w->showMaximized();
 }
