@@ -9,7 +9,9 @@ extern "C" {
 }
 
 #include <iostream>
+#include <sstream>
 #include <cstddef>
+#include <algorithm>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -55,80 +57,72 @@ enum dBaseTypes {
     i_value         // int type
 };
 
-
-struct Encod {       // contains mnemonic information
-    char  Mnem [8];  //   The mnemonic
-    char  Byte1[9];  //   Initial byte information
-    uchar OpType;    //   The operand type
-    uchar Byte2;     //   The second byte or reg field
-    uchar Mclass;    //   The class of mneomoic
-};
-
-const int _BX = 1;
-const int _SI = 2;
-const int _DI = 4;
-const int _BP = 8;
-
-enum RegList {
-    EAX = 'EAX', EBX = 'EBX', ECX = 'ECX', EDX = 'EDX', ESP = 'ESP', EBP = 'EBP', ESI = 'ESI', EDI = 'EDI',
-    AX  = 'AX' , BX  = 'BX' , CX  = 'CX' , DX  = 'DX' , SP  = 'SP' , BP  = 'BP' , SI  = 'SI' , DI  = 'DI' ,
-    AH  = 'AH' , BH  = 'BH' , CH  = 'CH' , DH  = 'DH' ,
-    AL  = 'AL' , BL  = 'BL' , CL  = 'CL' , DL  = 'DL'
-};
-
-const int   MaxReg = 24;
-
-const uchar AddrMode_1 = _BX + _SI;
-const uchar AddrMode_2 = _BX + _DI;
-const uchar AddrMode_3 = _BP + _SI;
-const uchar AddrMode_4 = _BP + _DI;
-const uchar AddrMode_5 = _SI;
-const uchar AddrMode_6 = _DI;
-const uchar AddrMode_7 = _BP;
-const uchar AddrMode_8 = _BX;
-
-// ---------------------------------------------------------------------------
-// Each instruction has an operand-type associated with it.  I have provided a
-// sample instruction in comments to demonstrate the differences among them.
-// ---------------------------------------------------------------------------
-const int NO_OPERAND =            0;   // NOP
-const int REG_MEM_REGISTER =      1;   // MOV BX,ES:[BP+5+SI] or MOV CX,DX
-const int IMMEDIATE_AL_AX =       2;   // CMP AX,56
-const int IMMEDIATE_REG_MEM =     3;   // CMP BX,78 or CMP SS:[BP+8],0Ah
-const int DIRECT_IN_SEGMENT =     4;   // CALL 567H
-const int INDIRECT_IN_SEGMENT =   5;   // CALL [78]
-const int DIRECT_INTRASEGMENT =   6;   // JMP 6543:8765
-const int INDIRECT_INTRASEGMENT = 7;   // JMP FAR [BX]
-const int REGISTER_MEMORY =       8;   // PUSH BL or PUSH ES:[BX]
-const int A16_BIT_REGISTER =      9;   // PUSH BX
-const int ESC =                  10;   // ESC ES:[BP+DI+7],101011b
-const int IMMEDIATE_PORT =       11;   // IN AL,0ABCh
-const int PORT_ADDRESS_IN_DX =   12;   // IN AL,DX
-const int INT =                  13;   // INT 67H or INT 3
-const int EIGHT_BIT_REL =        14;   // JL 90 or JMP SHORT 90
-const int MEMORY_AL_AX =         15;   // MOV ES:[SI],AL
-const int AL_AX_MEMORY =         16;   // MOV AX,CS:[DI]
-const int REG_MEM_SR =           17;   // MOV BX,ES or MOV [2],SS
-const int SR_REG_MEM =           18;   // MOV ES,BX or MOV SS,[2]
-const int SEGMENT_REGISTER =     19;   // PUSH ES
-const int ANOTHER_INSTRUCTION =  20;   // REP MOVSB (MOVSB is the other instruction)
-const int RET =                  21;   // RET or RET 6
-const int IMMEDIATE_REGISTER =   22;   // MOV BX,67
+// actual opcode
+std::string opCode;
 
 struct MopCodes {
     char   meno[10];    // menomic
     char   opmen[10];   // ...
     ushort mtype;       // machine type 8/16/32 bit
-    int    op;          // opcode
+    char   len;         // opcode len
+    int    op1;         // opcode // normal
+    int    op2;         // ...    //  8 bit
+    int    op3;         // ...    // 16 bit
 } _MopCodes[] = {
-    { "add", "al" ,  8, 0x04   },    // add al, 1-255        ; 0x04 + n(1-255)
-    { "add", "ah" ,  8, 0x80c4 },    // add ah, 1-255        ;  --
-    { "add", "ax" , 16, 0x6605 },    // add ax, 256-65535
-    { "add", "eax", 32, 0x05   },    // add eax, 32-bit -> + 0x01010000
-    { "add", "rax", 64, 0x4805 },    // add rax, 64-bit -> + 0x01010000
-    { "nop", ""   ,  0, 0x90   }     // nop
+    { "add", "al" ,  8, 1, 0x04    , 0x0     , 0x0 },    // add al, 1-255        ; 0x04 + n(1-255)
+    { "add", "ah" ,  8, 2, 0xc480  , 0x0     , 0x0 },    // add ah, 1-255        ;  --
+    { "add", "ax" , 16, 2, 0x8366  , 0xc0    , 0x0 },    // add ax, 256-65535
+    { "add", "eax", 32, 1, 0x05    , 0x0     , 0x0 },    // add eax, 32-bit -> + 0x01010000
+    { "add", "rax", 64, 2, 0x0548  , 0x0     , 0x0 },    // add rax, 64-bit -> + 0x01010000
+
+    { "add", "bl" ,  8, 1, 0x0380  , 0x0     , 0x0 },
+    { "add", "bh" ,  8, 2, 0xc780  , 0x0     , 0x0 },
+    { "add", "bx" , 12, 2, 0x8366  , 0x0     , 0x0 },
+    { "add", "ebx", 32, 2, 0xc383  , 0xc381  , 0x0 },
+    { "add", "rbx", 64, 3, 0xc38348, 0xc38148, 0x0 },
+
+    { "add", "cl" ,  8, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "ch" ,  8, 2, 0x03    , 0x0     , 0x0 },
+    { "add", "cx" , 12, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "ecx", 32, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "rcx", 64, 1, 0x03    , 0x0     , 0x0 },
+
+    { "add", "dl" ,  8, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "dh" ,  8, 2, 0x03    , 0x0     , 0x0 },
+    { "add", "dx" , 12, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "edx", 32, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "rdx", 64, 1, 0x03    , 0x0     , 0x0 },
+
+    { "add", "cl" ,  8, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "ch" ,  8, 2, 0x03    , 0x0     , 0x0 },
+    { "add", "cx" , 12, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "ecx", 32, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "rcx", 64, 1, 0x03    , 0x0     , 0x0 },
+
+    { "add", "dl" ,  8, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "dh" ,  8, 2, 0x03    , 0x0     , 0x0 },
+    { "add", "dx" , 12, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "edx", 32, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "rdx", 64, 1, 0x03    , 0x0     , 0x0 },
+
+    { "add", "sp" ,  8, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "esp",  8, 2, 0x03    , 0x0     , 0x0 },
+    { "add", "cx" , 12, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "ecx", 32, 1, 0x03    , 0x0     , 0x0 },
+    { "add", "rcx", 64, 1, 0x03    , 0x0     , 0x0 },
+
+    { "nop", ""   ,  8, 1, 0x90    , 0x0     , 0x0 }     // nop
+};
+const int maxOpCodeListSize = 36;
+
+struct MopCodeTmp {
+    char len;
+    int  mtype;
+    int  mop[3];
+    char aop[10];
 };
 
+struct MopCodeTmp myOpCode;
 
 class dBaseStmt {
 public:
@@ -314,6 +308,7 @@ bool eval()
 }
 
 const int TOKEN_ERROR  = -1;
+const int TOKEN_OK     =  0;
 const int TOKEN_SYMBOL =  1;
 const int TOKEN_NUMBER =  2;
 const int TOKEN_PARAMETER = 3;
@@ -500,7 +495,7 @@ bool parseCode(std::string src)
 }
 #endif
 
-int skip_white_space()
+int skip_white_space(int mode=0)
 {
     int c;
     while (1)
@@ -520,7 +515,25 @@ int skip_white_space()
             continue;
         }
 
-        if (c == ';') return ';';
+        // ------------------
+        // assembler comment
+        // ------------------
+        if (c == ';' && mode) {
+            cout << "comment" << endl;
+            while (1) {
+                c = sourcecode[++spos];
+                if (c == '\n' || c == '\r') {
+                    ++lineno;
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if (mode == 2) {
+            if (c == ',') continue;
+        }
+
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_')
         {
             token = c;
@@ -531,9 +544,16 @@ int skip_white_space()
                     throw dBaseMissException;
                     break;
                 }
-                if (c == ' '  || c == '\t') goto etok;
+                if (c == ',') goto etok;
+                if (c == ' '  || c == '\t') {
+                    if (token == "nop")
+                    return TOKEN_SYMBOL; else
+                    goto etok;
+                }
                 if (c == '\n' || c == '\r') {
                     ++lineno;
+                    if (token == "nop")
+                    return TOKEN_SYMBOL; else
                     goto etok;
                 }
                 if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
@@ -541,11 +561,42 @@ int skip_white_space()
                     token += c;
                 }   else {
                     etok:
-                    for(auto const &atoken : token_list)
-                    {
-                        if (atoken.first == token)
-                        return atoken.second;
-                    }   return TOKEN_SYMBOL;
+                    if (mode == 1) {
+                        for (int i = 0; i < maxOpCodeListSize; ++i)   {
+                        if (!strcmp(_MopCodes[i].meno,token.c_str())) {
+                            strcpy(myOpCode.aop,_MopCodes[i].meno);
+                            myOpCode.mop[0] = _MopCodes[i].op1;
+                            myOpCode.mop[1] = _MopCodes[i].op2;
+                            myOpCode.mop[2] = _MopCodes[i].op3;
+
+                            myOpCode.len    = _MopCodes[i].len;
+                            myOpCode.mtype  = _MopCodes[i].mtype;
+
+                            return TOKEN_SYMBOL;
+                        }}  return TOKEN_ERROR;
+                    }
+                    else if (mode == 2) {
+                        for (int i = 0; i < maxOpCodeListSize; ++i)   {
+                        if (!strcmp(_MopCodes[i].opmen,token.c_str())){
+                            strcpy(myOpCode.aop,_MopCodes[i].meno);
+                            myOpCode.mop[0] = _MopCodes[i].op1;
+                            myOpCode.mop[1] = _MopCodes[i].op2;
+                            myOpCode.mop[2] = _MopCodes[i].op3;
+
+                            myOpCode.len   = _MopCodes[i].len;
+                            myOpCode.mtype = _MopCodes[i].mtype;
+
+                            return TOKEN_SYMBOL;
+                        }}  return TOKEN_ERROR;
+                    }
+                    else {
+                        for(auto const &atoken : token_list)
+                        {
+                            if (atoken.first == token)
+                            return atoken.second;
+                        }
+                    }
+                    return TOKEN_SYMBOL;
                 }
             }
         }
@@ -791,7 +842,6 @@ int skip_white_space()
 
         if (c == '=') break;
         if (c == '+') break;
-        if (c == ',') break;
 
     }
     return c;
@@ -1055,14 +1105,122 @@ void Capitalize(std::string &str)
 
 static FILE *AsmBinOutput = nullptr;
 
+template <class T>
+void endswap(T *objp)
+{
+    unsigned char *memp = reinterpret_cast<unsigned char*>(objp);
+    std::reverse(memp, memp + sizeof(T));
+}
+
+void write_code(FILE *f, struct MopCodeTmp op, int num=0, bool nf=false)
+{
+    int x = op.mop[0];
+    char buffer[100];
+
+    // ---------
+    // add ...
+    // ---------
+    if (x == 0x0548) {                 // add rax
+        sprintf(buffer, "%04x",num);
+        sscanf (buffer, "%x"  ,&x );
+
+        fwrite(&op.mop[0],2,1,f);
+        fwrite(&x,sizeof(int),1,f);
+    }
+    else if (x == 0x05)                // add eax
+    {
+        sprintf(buffer, "%08x",num);
+        sscanf (buffer, "%x"  ,&x );
+
+        fwrite(&op.mop[0],1,1,f);
+        fwrite(&x,sizeof(int),1,f);
+    }
+    else if (x == 0x8366)               // add ax
+    {
+        char buffer[10];
+        fseek(f,-1,SEEK_CUR);
+
+        if (num < 0x100) {
+            buffer[1] = 0x83;
+            buffer[0] = 0x66;
+
+            fwrite(buffer,2,1,f);
+
+            sprintf(buffer, "%01x", num);
+            sscanf (buffer, "%x"  , &x );
+
+            int c = 0xc0;
+
+            fwrite(&c,1,1,f);
+            fwrite(&x,1,1,f);
+        }
+        else if (num > 0x100) {
+            buffer[1] = 0x05;
+            buffer[0] = 0x66;
+
+            fwrite(buffer,2,1,f);
+
+            sprintf(buffer, "%02x", num);
+            sscanf (buffer, "%x"  , &x );
+
+            fwrite(&x,2,1,f);
+        }
+    }
+    else if (x == 0xc480) {             // add ah
+        sprintf(buffer, "%01x", num);
+        sscanf (buffer, "%01x", &x );
+
+        fwrite(&op.mop[0],2,1,f);
+        fwrite(&x,2,1,f);
+    }
+    else if (x == 0x04) {               // add al
+        sprintf(buffer, "%01x", num);
+        sscanf (buffer, "%01x", &x );
+
+        fwrite(&op.mop[0],1,1,f);
+        fwrite(&x,1,1,f);
+    }
+    else if (x == 0x90) {
+        cout << "noppser" << endl;
+        fwrite(&x,1,1,f);
+    }
+    else {
+        cout << "plupso" << endl;
+    }
+}
+
 void assemble_code(FILE *f, std::string code)
 {
     sourcecode = code;
     int c;
+    int mode = 1;
     while (1) {
-        c = skip_white_space();
-        if (c == ';') {
-            cout << "comment" << endl;
+        c = skip_white_space(1);
+        cout << c << endl;
+        if (c == TOKEN_SYMBOL) {            // left menomic
+            std::string meno = token;
+            cout << token << endl;
+
+            if (token != "nop") {
+                c = skip_white_space(2);
+                if (c == TOKEN_SYMBOL)          // op
+                {
+                    std::string meno_op = token;
+                    cout << "----> " << token << endl;
+
+                    c = skip_white_space(2);     // value
+                    if (c == TOKEN_NUMBER) {
+
+                        cout << "add number: " << token << endl;
+
+                        write_code(f,myOpCode,atoi(token.c_str()),true);
+                        continue;
+                    }
+                }
+            }
+            else {
+                write_code(f,myOpCode);
+            }
         }
         else break;
     }
@@ -1074,7 +1232,20 @@ bool Assemble(void)
 ;
 ; test comment
 ;
-    add al, 2   ; comment after instruction
+    nop
+    add al , 2   ; comment after instruction
+; next
+    add al, 3
+            add ah, 12
+
+            add ax, 257
+
+            add eax, 257
+
+            add rax, 32
+
+            nop
+
 
 )";
 
@@ -1084,9 +1255,9 @@ bool Assemble(void)
         return false;
     }
 
-    cout << "putzi" << endl;
     assemble_code(AsmBinOutput,code);
     fclose(AsmBinOutput);
+    return true;
 }
 
 bool parseText(QString text, int mode)
@@ -1104,6 +1275,7 @@ Azrael = -1.2 + 0.4 //+ 6 - 7 - 2 - 2 + 2 + 3
 
 )";
 
+    spos = -1;
     return Assemble();
 
     //return parse_code(source_code);
