@@ -75,10 +75,10 @@ struct MopCodes {
     { "add", "eax", 32, 1, 0x05    , 0x0     , 0x0 },    // add eax, 32-bit -> + 0x01010000
     { "add", "rax", 64, 2, 0x0548  , 0x0     , 0x0 },    // add rax, 64-bit -> + 0x01010000
 
-    { "add", "bl" ,  8, 1, 0x0380  , 0x0     , 0x0 },
+    { "add", "bl" ,  8, 1, 0xc380  , 0x0     , 0x0 },
     { "add", "bh" ,  8, 2, 0xc780  , 0x0     , 0x0 },
-    { "add", "bx" , 12, 2, 0x8366  , 0x0     , 0x0 },
-    { "add", "ebx", 32, 2, 0xc383  , 0xc381  , 0x0 },
+    { "add", "bx" , 12, 2, 0x8166  , 0xc3    , 0x0 },
+    { "add", "ebx", 32, 2, 0xc381  , 0xc381  , 0x0 },
     { "add", "rbx", 64, 3, 0xc38348, 0xc38148, 0x0 },
 
     { "add", "cl" ,  8, 1, 0x03    , 0x0     , 0x0 },
@@ -1118,7 +1118,7 @@ void write_code(FILE *f, struct MopCodeTmp op, int num=0, bool nf=false)
     char buffer[100];
 
     // ---------
-    // add ...
+    // add al ...
     // ---------
     if (x == 0x0548) {                 // add rax
         sprintf(buffer, "%04x",num);
@@ -1137,14 +1137,10 @@ void write_code(FILE *f, struct MopCodeTmp op, int num=0, bool nf=false)
     }
     else if (x == 0x8366)               // add ax
     {
-        char buffer[10];
         fseek(f,-1,SEEK_CUR);
 
         if (num < 0x100) {
-            buffer[1] = 0x83;
-            buffer[0] = 0x66;
-
-            fwrite(buffer,2,1,f);
+            fwrite(&x,2,1,f);
 
             sprintf(buffer, "%01x", num);
             sscanf (buffer, "%x"  , &x );
@@ -1179,6 +1175,29 @@ void write_code(FILE *f, struct MopCodeTmp op, int num=0, bool nf=false)
 
         fwrite(&op.mop[0],1,1,f);
         fwrite(&x,1,1,f);
+    }
+
+    // ----------
+    // add bl...
+    // ----------
+    else if (x == 0xc380) {             // add bl
+        fwrite(&op.mop[0],2,1,f);
+        fwrite(&num,1,1,f);
+    }
+    else if (x == 0xc780) {             // add bh
+        fwrite(&x,2,1,f);
+        fwrite(&num,1,1,f);
+    }
+    else if (x == 0x8166)             // add bx
+    {
+        fwrite(&x,2,1,f); x = 0xc3;
+        fwrite(&x,1,1,f);
+        fwrite(&num,2,1,f);
+    }
+    else if (x == 0xc381)
+    {                                    // add ebx
+        fwrite(&x,2,1,f);
+        fwrite(&num,sizeof(int) ,1,f);
     }
     else if (x == 0x90) {
         cout << "noppser" << endl;
@@ -1219,6 +1238,7 @@ void assemble_code(FILE *f, std::string code)
                 }
             }
             else {
+                myOpCode.mop[0] = 0x90;
                 write_code(f,myOpCode);
             }
         }
@@ -1243,6 +1263,18 @@ bool Assemble(void)
             add eax, 257
 
             add rax, 32
+
+            nop
+
+            add bl, 6
+            add bh, 9
+            add bx, 12
+
+            nop
+
+            add bx, 13
+
+            add ebx, 257
 
             nop
 
