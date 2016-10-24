@@ -6,7 +6,7 @@
 #------------------------------------------------------------------------
 TEMPLATE = app
 TARGET   = dbase
-CONFIG  += release
+CONFIG  += release c++14
 
 QT = core gui widgets help network
 
@@ -36,22 +36,24 @@ QMAKE_CXXFLAGS += \
         -Wno-extra \
         -Wno-reorder \
         -Wno-multichar \
-        -Wno-uninitalized \
         -Wno-sign-compare \
         -Wunused-function \
         -Woverloaded-virtual -fpermissive \
         -ftemplate-depth=400 \
-        -frtti -fexceptions  -std=c++17 \
+        -frtti -fexceptions \
+        -I/usr/local/include \
+        -I/usr/local/include/boost \
         -I$${TOPDIR}. -I$${SRCDIR} -I$${SRCDIR}/includes \
         -D__BYTE_ORDER=__LITTLE_ENDIAN \
         -DQT_DEPRECATED \
         -DQT_DISABLE_DEPRECATED_BEFORE
 
 INCLUDEPATH += \
-        /usr/include \
+        /usr/local/include \
         $${TOPDIR}/.uic \
         $${SRCDIR}/ \
-        $${SRCDIR}/includes
+        $${SRCDIR}/includes \
+        /usr/include
 
 SOURCES += \
         $${SRCDIR}/dbase/main.cc \
@@ -149,5 +151,5 @@ DISTFILES += \
     source/html/index.html \
     examples/Form1.frm
 
-LIBS += -L"/usr/local/lib64" -lstdc++
-LIBS += -L"/dbase" -lmod_dbase
+LIBS += -L"/usr/local/lib64" -L/dbase/lib -lstdc++
+LIBS += -lmod_dbase

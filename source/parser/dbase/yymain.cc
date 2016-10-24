@@ -1,3 +1,224 @@
+#define BOOST_SPIRIT_DEBUG
+#define BOOST_SPIRIT_ACTIONS_ALLOW_ATTR_COMPAT
+
+#include <boost/config/warning_disable.hpp>
+#include <boost/spirit/include/qi.hpp>
+
+#include <boost/spirit/include/phoenix_core.hpp>
+#include <boost/spirit/include/phoenix_operator.hpp>
+#include <boost/spirit/include/phoenix_fusion.hpp>
+#include <boost/spirit/include/phoenix_stl.hpp>
+#include <boost/spirit/include/phoenix_object.hpp>
+
+#include <string>
+#include <iostream>
+
+#define USE_QT
+#ifdef  USE_QT
+#include <QMessageBox>
+#endif
+
+using namespace std;
+using namespace boost::spirit;
+
+namespace client
+{
+     namespace fusion = boost::fusion;
+     namespace phoenix = boost::phoenix;
+
+     namespace qi = boost::spirit::qi;
+     namespace ascii = boost::spirit::ascii;
+
+     template <typename Iterator>
+     struct dbase_skipper : public qi::grammar<Iterator>
+     {
+         dbase_skipper() : dbase_skipper::base_type(my_skip, "dBase")
+         {
+             using qi::ascii::char_;
+             using qi::ascii::space;
+             using qi::eol;
+             using qi::eoi;
+
+             my_skip = (char_("[ \t\n\r]"))                            |
+             ("**" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
+             ("&&" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
+             ("//" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
+             ("/*" >> *(char_ - "*/") >> "*/")
+             ;
+
+             BOOST_SPIRIT_DEBUG_NODE((my_skip));
+         }
+         qi::rule<Iterator> my_skip;
+     };
+
+     template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
+     struct dbase_grammar : public qi::grammar<Iterator, Skipper>
+     {
+         qi::rule<Iterator, Skipper> start, run_app;
+         dbase_grammar()  : dbase_grammar::base_type(start)
+         {
+             using boost::spirit::ascii::no_case;
+
+             using qi::lit;
+             using qi::char_;
+
+             using qi::on_error;
+             using qi::fail;
+
+             using phoenix::construct;
+             using phoenix::val;
+
+             start   = run_app.alias();
+             run_app = - symsbols;
+
+             expression =
+                     term.alias()
+                     >> *(
+                       ('+' >> term )
+                     | ('-' >> term ))
+                     ;
+             term =
+                     factor.alias()
+                     >> *(
+                       ('*' >> factor )
+                     | ('/' >> factor ))
+                     ;
+
+             factor =
+                     ( symbol_digit
+                     ///| symbol_alpha
+                     )
+                     >> *(
+                     ('('   >> expression >> ')')
+                     | ('-' >> factor     )
+                     | ('+' >> factor     ))
+                     ;
+
+             symsbols =
+                 (((symbol_class > symbol_alpha >
+                    symbol_of    > symbol_alpha > symbol_endclass >> run_app) |
+                   (symbol_class > symbol_alpha >
+                    symbol_of    > symbol_alpha > symbol_endclass)
+                   )              |
+                 ((symbol_alpha  > qi::char_('=') > expression >> run_app) |
+                  (symbol_alpha  > qi::char_('=') > expression         ))
+                 )
+                 ;
+
+             symbol_class    = no_case["class"];
+             symbol_of       = no_case["of"];
+             symbol_endclass = no_case["endclass"];
+
+             symbol_space =
+                 +(qi::char_(" \t\n\r") | eol | eoi)
+                 ;
+
+             symbol_alpha =
+                  qi::char_("a-zA-Z_") >>
+                 *qi::char_("a-zA-Z0-9_")
+                 ;
+
+             symbol_digit =
+                 +(qi::digit)
+                 ;
+
+             on_error<fail>
+             (
+                 start
+               , std::cout
+                     << val("Error! Expecting ")
+                     << _4                               // what failed?
+                     << val(" here: \"")
+                     << construct<std::string>(_3, _2)   // iterators to error-pos, end
+                     << val("\"")
+                     << std::endl
+             );
+
+
+             BOOST_SPIRIT_DEBUG_NODE(start);
+             BOOST_SPIRIT_DEBUG_NODE(symsbols);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_of);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_endclass);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_class);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_space);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_alpha);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_digit);
+
+
+             BOOST_SPIRIT_DEBUG_NODE(expression);
+             BOOST_SPIRIT_DEBUG_NODE(term);
+             BOOST_SPIRIT_DEBUG_NODE(factor);
+         }
+
+         qi::rule<Iterator, std::string()>
+         symbol_alpha;
+
+         qi::rule<Iterator, Skipper>
+         symsbols,
+         symbol_digit,
+         symbol_space,
+         symbol_class,
+         symbol_endclass,
+         symbol_of;
+
+         qi::rule<Iterator, Skipper> expression, term, factor;
+     };
+}
+
+bool my_parser(std::string const str)
+{
+     typedef std::string::const_iterator iterator_t;
+
+     typedef client::dbase_grammar <iterator_t> grammar;
+     typedef client::dbase_skipper <iterator_t> skipper;
+
+     grammar pg;
+     skipper skp;
+
+     iterator_t iter = str.begin();
+     iterator_t end  = str.end();
+
+     bool r = phrase_parse(iter, end, pg, skp);
+     if (r == true) {
+         #ifdef USE_QT
+         QMessageBox::information(0,"Parser", "Parsing SUCCESS.");
+         #else
+         std::cout << "SUCCESS" << std::endl;
+         #endif
+         return true;
+     }
+
+     if (iter != end) {
+         std::cout << "Remaining: '" << std::string(iter, end) << std::endl;
+         #ifdef USE_QT
+         QMessageBox::information(0,"Parser", "Parsing ERROR.");
+         #else
+         std::cout << "ERROR" << std::endl;
+         #endif
+         return false;
+     }   return false;
+}
+
+bool parseText(std::string str, int mode)
+{
+     return my_parser(str);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifdef _ASDASD_ASDASD_ASD_S_AS_DASDASDASD
 #include "includes/mainwindow.h"
 #include "dBaseWindow.h"
 
@@ -273,7 +494,6 @@ bool eval()
         dBaseVariable *item_1 = dynamic_cast<dBaseStmt*>(*it);
         if (item_1) {
             cout << item_1->name << " = " << item_1->value_double << endl;
-            item_1 = nullptr;
             continue;
         }
 
@@ -1069,6 +1289,9 @@ bool parse_code(std::string src)
                 if (expr())  {
                     cout << "222" << endl;
                     double res = get_expr(atof(token.c_str()));
+                    dBaseVariable *var = new
+                    dBaseVariable(var_name,res);
+
                     cout << "444" << endl;
                     cout << var_name << " = " << res << endl;
                     continue;
@@ -1308,10 +1531,12 @@ Azrael = -1.2 + 0.4 //+ 6 - 7 - 2 - 2 + 2 + 3
 )";
 
     spos = -1;
-    return Assemble();
+    //return Assemble();
 
-    //return parse_code(source_code);
+    parse_code(source_code);
+    eval();
 
     //Parser<dBase> parse(text.toStdString());
 
 }
+#endif

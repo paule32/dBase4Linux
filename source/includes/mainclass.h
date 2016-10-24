@@ -9,7 +9,7 @@
 
 extern class MainWindow *w;
 
-extern bool parseText(QString,int);
+extern bool parseText(std::string,int);
 
 class MyMainClass: public QObject
 {     Q_OBJECT
@@ -30,7 +30,7 @@ public:
         if (text() == QString("Start..."))
         parseText(w->ui->editorWidget
                    ->document()
-                   ->toPlainText(),
+                   ->toPlainText().toStdString(),
         0);
     }
 };

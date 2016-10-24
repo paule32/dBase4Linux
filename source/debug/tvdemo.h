@@ -34,6 +34,8 @@ extern "C" {
 #define Uses_TScrollBar
 #define Uses_TApplication
 #define Uses_TWindow
+#define Uses_TFileEditor
+#define Uses_TScrollBar
 #define Uses_TDeskTop
 #define Uses_TScreen
 #define Uses_IOS_BIN
@@ -62,7 +64,7 @@ const int cmPuzzleCmd   = 101;
 const int cmCalendarCmd = 102;
 const int cmAsciiCmd    = 103;
 const int cmCalcCmd     = 104;
-const int cmOpen        = 105;
+//const int cmOpen        = 105;
 const int cmHelp        = 150;
 
 const int cmAbout     = 106;

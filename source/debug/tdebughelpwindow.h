@@ -11,6 +11,7 @@
 
 #define Uses_TEventQueue
 #define Uses_TEvent
+#define Uses_TIndicator
 #define Uses_TProgram
 #define Uses_TApplication
 #define Uses_TKeys
@@ -30,6 +31,7 @@
 #define Uses_TDialog
 #define Uses_TCheckBoxes
 #define Uses_TLabel
+#define Uses_TEditWindow
 #define Uses_TSItem
 #define Uses_TRadioButtons
 #define Uses_TInputLine
@@ -39,6 +41,8 @@
 #include "../includes/tv.h"
 
 using namespace std;
+
+extern ushort executeDialog( TDialog* pD, void* data=0);
 
 class TInterior: public TScroller
 {
@@ -71,6 +75,8 @@ public:
     TDebugHelpWindow(TRect r);
     void makeInterior();
     TInterior *interior;
+
+    void check_zip(std::string filename);
 };
 
 #endif // TDEBUGHELPWINDOW_H

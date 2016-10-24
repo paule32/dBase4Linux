@@ -1,6 +1,6 @@
 #include "source/includes/mainwindow.h"
 
-extern bool parseText(QString,int);
+extern bool parseText(std::string,int);
 
 MyEditor::MyEditor(QWidget *parent)
     : QPlainTextEdit(parent)
@@ -26,7 +26,6 @@ MyEditor::MyEditor(QWidget *parent)
     on_cursorPositionChanged();
 }
 
-extern bool parseText(QString,int);
 void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
 {
     // for most widgets
@@ -48,7 +47,7 @@ void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
     if (selectedItem->text() == QString("Run ...")) {
         parseText(w->ui->editorWidget
                    ->document()
-                   ->toPlainText(),
+                   ->toPlainText().toStdString(),
         0);
     }  else
     if (selectedItem->text() == QString("Insert template ..."))
@@ -126,7 +125,9 @@ void MyEditor::mousePressEvent(class QMouseEvent  *event)
 
 void MyEditor::on_parseText()
 {
-    parseText(document()->toPlainText(),0);
+    std::string str;
+    str = document()->toPlainText().toStdString();
+    parseText(str,0);
 }
 
 void MyEditor::on_dockHelpOpen() {

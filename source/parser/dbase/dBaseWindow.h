@@ -4,9 +4,8 @@
 #include <QObject>
 #include <QWidget>
 #include <QEventLoop>
-#include "includes/mainwindow.h"
+#include "source/includes/mainwindow.h"
 
-namespace dBaseParser {
 class dBaseWindow : public QWidget
 {
     Q_OBJECT
@@ -17,5 +16,5 @@ signals:
 
 public slots:
 };
-} // namespace
+
 #endif
