@@ -136,6 +136,8 @@ DISTFILES += \
     LICENSE \
     mygit.sh \
     README.md \
+    exec/dbase.sh \
+    exec/dbase \
     examples/test1.prg \
     source/images/addierer.png \
     source/serverfiles/users.php \

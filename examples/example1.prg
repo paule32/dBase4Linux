@@ -4,6 +4,8 @@
 /*
   comment block
 */
+parameter cc, ffff, csvxcv
+local xxx
 
 if ( xxx == sss)
 if ( xxx == sss)

@@ -1,4 +1,4 @@
-#define BOOST_SPIRIT_DEBUG
+//#define BOOST_SPIRIT_DEBUG
 #define BOOST_SPIRIT_ACTIONS_ALLOW_ATTR_COMPAT
 
 #include <boost/config/warning_disable.hpp>
@@ -258,11 +258,11 @@ namespace client
              symbol_endif     = lexeme[no_case["endif"]];
 
              symbol_def_parameter %=
-                  (symbol_parameter >> (symbol_alpha % ',') >> (qi::eoi | qi::eol))
+                  (symbol_parameter >> (symbol_alpha % ','))
                   ;
 
              symbol_def_local %=
-                  (symbol_local >> (symbol_alpha % ',') >> (qi::eoi | qi::eol))
+                  (symbol_local >> (symbol_alpha % ','))
                   ;
 
              symbol_def_class %= symbol_def_class_inner;
