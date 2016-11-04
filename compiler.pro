@@ -149,7 +149,8 @@ DISTFILES += \
     source/html/bewerber.dtd \
     source/html/bewerber.xsl \
     source/html/index.html \
-    examples/Form1.frm
+    examples/Form1.frm \
+    examples/example1.prg
 
 LIBS += -L"/usr/local/lib64" -L/dbase/lib -lstdc++
 LIBS += -lmod_dbase

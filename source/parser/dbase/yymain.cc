@@ -9,9 +9,14 @@
 #include <boost/spirit/include/phoenix_fusion.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/include/phoenix_object.hpp>
+#include <boost/spirit/include/phoenix_container.hpp>
+#include <boost/spirit/include/phoenix_statement.hpp>
+#include <boost/lexical_cast.hpp>
 
-#include <string>
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #define USE_QT
 #ifdef  USE_QT
@@ -19,7 +24,13 @@
 #endif
 
 using namespace std;
+
+using boost::phoenix::function;
+using boost::phoenix::ref;
+using boost::phoenix::size;
+
 using namespace boost::spirit;
+using namespace boost::spirit::qi;
 
 namespace client
 {
@@ -28,6 +39,59 @@ namespace client
 
      namespace qi = boost::spirit::qi;
      namespace ascii = boost::spirit::ascii;
+
+     enum byte_code
+     {
+         op_neg,         //  negate the top stack entry
+         op_add,         //  add top two stack entries
+         op_sub,         //  subtract top two stack entries
+         op_mul,         //  multiply top two stack entries
+         op_div,         //  divide top two stack entries
+
+         op_not,         //  boolean negate the top stack entry
+         op_eq,          //  compare the top two stack entries for ==
+         op_neq,         //  compare the top two stack entries for !=
+         op_lt,          //  compare the top two stack entries for <
+         op_lte,         //  compare the top two stack entries for <=
+         op_gt,          //  compare the top two stack entries for >
+         op_gte,         //  compare the top two stack entries for >=
+
+         op_and,         //  logical and top two stack entries
+         op_or,          //  logical or top two stack entries
+
+         op_load,        //  load a variable
+         op_store,       //  store a variable
+
+         op_int,         //  push constant integer into the stack
+         op_true,        //  push constant 0 into the stack
+         op_false,       //  push constant 1 into the stack
+
+         op_jump_if,     //  jump to an absolute position in the code if top stack
+                         //  evaluates to false
+         op_jump,        //  jump to an absolute position in the code
+
+         op_stk_adj,     // adjust the stack (for args and locals)
+         op_call,        // function call
+         op_return       // return from function
+     };
+
+     class vmachine
+     {
+     public:
+
+         vmachine(unsigned stackSize = 4096)
+           : stack(stackSize)
+         {
+         }
+
+         int execute(
+             std::vector<int> const& code            // the program code
+           , std::vector<int>::const_iterator pc     // program counter
+           , std::vector<int>::iterator frame_ptr    // start of arguments and locals
+         );
+
+         std::vector<int> stack;
+     };
 
      template <typename Iterator>
      struct dbase_skipper : public qi::grammar<Iterator>
@@ -39,6 +103,11 @@ namespace client
              using qi::eol;
              using qi::eoi;
 
+             using qi::on_error;
+             using qi::fail;
+
+             using phoenix::val;
+
              my_skip = (char_("[ \t\n\r]"))                            |
              ("**" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
              ("&&" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
@@ -46,9 +115,51 @@ namespace client
              ("/*" >> *(char_ - "*/") >> "*/")
              ;
 
+             on_error<fail>
+              (
+                  my_skip
+                , std::cout
+                      << val("Error! Expecting comment")
+                      << std::endl
+              );
+
              BOOST_SPIRIT_DEBUG_NODE((my_skip));
          }
          qi::rule<Iterator> my_skip;
+     };
+
+     struct compile_op
+     {
+         template <typename A, typename B = unused_type, typename C = unused_type>
+         struct result { typedef void type; };
+
+         compile_op() { QMessageBox(0,"sssss","poxoxoxooxox111111111"); }
+         compile_op(std::vector<int> code)
+         {
+             QMessageBox::information(0,"sssss","poxoxoxooxox");
+             code = code;
+             QMessageBox::information(0,"sssss","poxoxoxooxox222222");
+         }
+
+         void operator()(int a) const
+         {
+             code.push_back(a);
+         }
+
+         void operator()(int a, int b) const
+         {
+             code.push_back(a);
+             code.push_back(b);
+         }
+
+         void operator()(int a, int b, int c) const
+         {
+             code.push_back(a);
+             code.push_back(b);
+             code.push_back(c);
+         }
+
+         std::vector<int> code;
      };
 
      template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
@@ -61,6 +172,7 @@ namespace client
 
              using qi::lit;
              using qi::char_;
+             using qi::lexeme;
 
              using qi::on_error;
              using qi::fail;
@@ -68,52 +180,113 @@ namespace client
              using phoenix::construct;
              using phoenix::val;
 
-             start   = run_app.alias();
-             run_app = - symsbols;
+             start = * symsbols;
 
-             expression =
-                     term.alias()
-                     >> *(
-                       ('+' >> term )
-                     | ('-' >> term ))
-                     ;
-             term =
-                     factor.alias()
-                     >> *(
-                       ('*' >> factor )
-                     | ('/' >> factor ))
+             expression    = equality_expr.alias() ;
+             equality_expr =
+                     relational_expr
+                     >> *(   ("==" > relational_expr     [op(op_eq)])
+                         |   ("!=" > relational_expr     [op(op_neq)])
+                         )
                      ;
 
-             factor =
-                     ( symbol_digit
-                     ///| symbol_alpha
-                     )
-                     >> *(
-                     ('('   >> expression >> ')')
-                     | ('-' >> factor     )
-                     | ('+' >> factor     ))
+                 relational_expr =
+                     logical_expr
+                     >> *(   ("<=" > logical_expr        [op(op_lte)])
+                         |   ('<' > logical_expr         [op(op_lt)])
+                         |   (">=" > logical_expr        [op(op_gte)])
+                         |   ('>' > logical_expr         [op(op_gt)])
+                         )
                      ;
 
-             symsbols =
-                 (((symbol_class > symbol_alpha >
-                    symbol_of    > symbol_alpha > symbol_endclass >> run_app) |
-                   (symbol_class > symbol_alpha >
-                    symbol_of    > symbol_alpha > symbol_endclass)
-                   )              |
-                 ((symbol_alpha  > qi::char_('=') > expression >> run_app) |
+                 logical_expr =
+                     additive_expr
+                     >> *(   (lit(".and.") > additive_expr       [op(op_and)])
+                         |   (lit(".or.")  > additive_expr       [op(op_or)])
+                         )
+                     ;
+
+                 additive_expr =
+                     multiplicative_expr
+                     >> *(   ('+' > multiplicative_expr  [op(op_add)])
+                         |   ('-' > multiplicative_expr  [op(op_sub)])
+                         )
+                     ;
+
+                 multiplicative_expr =
+                     unary_expr
+                     >> *(   ('*' > unary_expr           [op(op_mul)])
+                         |   ('/' > unary_expr           [op(op_div)])
+                         )
+                     ;
+
+                 unary_expr =
+                         primary_expr
+                     |   ('!' > primary_expr             [op(op_not)])
+                     |   ('-' > primary_expr             [op(op_neg)])
+                     |   ('+' > primary_expr)
+                     ;
+
+                 primary_expr =
+                     uint_                               [op(op_int, _1)]
+                     |   variable
+                     |   lit("true")                     [op(op_true)]
+                     |   lit("false")                    [op(op_false)]
+                     |   '(' > expression > ')'
+                     ;
+
+                 variable = symbol_alpha;
+
+
+             symsbols %=
+                   symbol_def_parameter  |
+                   symbol_def_local |
+                   symbol_def_class |
+                   symbol_def_if
+                     |
+                 ((symbol_alpha  > qi::char_('=') > expression >> start) |
                   (symbol_alpha  > qi::char_('=') > expression         ))
-                 )
                  ;
 
-             symbol_class    = no_case["class"];
-             symbol_of       = no_case["of"];
-             symbol_endclass = no_case["endclass"];
+             symbol_class     = lexeme[no_case["class"]];
+             symbol_of        = lexeme[no_case["of"]];
+             symbol_endclass  = lexeme[no_case["endclass"]];
+             symbol_parameter = lexeme[no_case["parameter"]];
+             symbol_local     = lexeme[no_case["local"]];
+             symbol_if        = lexeme[no_case["if"]];
+             symbol_else      = lexeme[no_case["else"]];
+             symbol_endif     = lexeme[no_case["endif"]];
+
+             symbol_def_parameter %=
+                  (symbol_parameter >> (symbol_alpha % ',') >> (qi::eoi | qi::eol))
+                  ;
+
+             symbol_def_local %=
+                  (symbol_local >> (symbol_alpha % ',') >> (qi::eoi | qi::eol))
+                  ;
+
+             symbol_def_class %= symbol_def_class_inner;
+             symbol_def_class_inner %=
+                   symbol_class >> symbol_alpha >> symbol_of >> symbol_alpha >>
+                 * symbol_def_stmts
+                 > symbol_endclass;
+
+             symbol_def_if %= symbol_def_if_inner;
+             symbol_def_if_inner %=
+                   symbol_if >> '(' >> expression >> ')' >>
+                 * symbol_def_stmts
+                 > symbol_endif;
+
+             symbol_def_stmts %=
+                   symbol_def_if |
+                   symbol_def_class
+                 ;
 
              symbol_space =
                  +(qi::char_(" \t\n\r") | eol | eoi)
                  ;
 
-             symbol_alpha =
+             symbol_alpha %=
                   qi::char_("a-zA-Z_") >>
                  *qi::char_("a-zA-Z0-9_")
                  ;
@@ -123,17 +296,16 @@ namespace client
                  ;
 
              on_error<fail>
-             (
-                 start
-               , std::cout
-                     << val("Error! Expecting ")
-                     << _4                               // what failed?
-                     << val(" here: \"")
-                     << construct<std::string>(_3, _2)   // iterators to error-pos, end
-                     << val("\"")
-                     << std::endl
+              (
+                  start
+                , std::cout
+                      << val("Error! Expecting ")
+                      << _4                               // what failed?
+                      << val(" here: \"")
+                      << construct<std::string>(_3, _2)   // iterators to error-pos, end
+                      << val("\"")
+                      << std::endl
              );
-
 
              BOOST_SPIRIT_DEBUG_NODE(start);
              BOOST_SPIRIT_DEBUG_NODE(symsbols);
@@ -143,23 +315,59 @@ namespace client
              BOOST_SPIRIT_DEBUG_NODE(symbol_space);
              BOOST_SPIRIT_DEBUG_NODE(symbol_alpha);
              BOOST_SPIRIT_DEBUG_NODE(symbol_digit);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_ident);
+
+             BOOST_SPIRIT_DEBUG_NODE(symbol_parameter);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_def_parameter);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_def_stmts);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_def_local);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_def_class);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_def_class_inner);
 
 
              BOOST_SPIRIT_DEBUG_NODE(expression);
              BOOST_SPIRIT_DEBUG_NODE(term);
              BOOST_SPIRIT_DEBUG_NODE(factor);
+
+             BOOST_SPIRIT_DEBUG_NODE(symbol_if);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_else);
+             BOOST_SPIRIT_DEBUG_NODE(symbol_endif);
+
+             BOOST_SPIRIT_DEBUG_NODE(symbol_local);
          }
 
+         qi::rule<Iterator, Skipper>
+                 equality_expr, relational_expr
+               , logical_expr, additive_expr, multiplicative_expr
+               , unary_expr, primary_expr, variable
+               ;
+
+         phoenix::function<compile_op> op;
+
          qi::rule<Iterator, std::string()>
-         symbol_alpha;
+         symbol_alpha,
+         symbol_ident;
 
          qi::rule<Iterator, Skipper>
          symsbols,
+         symbol_local,
+         symbol_if,
+         symbol_else,
+         symbol_endif,
          symbol_digit,
          symbol_space,
          symbol_class,
          symbol_endclass,
-         symbol_of;
+         symbol_of,
+         symbol_parameter,
+
+         symbol_def_parameter,
+         symbol_def_if,
+         symbol_def_if_inner,
+         symbol_def_stmts,
+         symbol_def_local,
+         symbol_def_class_inner,
+         symbol_def_class;
 
          qi::rule<Iterator, Skipper> expression, term, factor;
      };
