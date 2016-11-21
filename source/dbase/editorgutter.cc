@@ -1,6 +1,6 @@
 #include "source/includes/mainwindow.h"
 
-extern bool parseText(std::string,int);
+extern bool parseText(std::string const s,int m);
 
 MyEditor::MyEditor(QWidget *parent)
     : QPlainTextEdit(parent)
@@ -45,9 +45,10 @@ void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
     QAction* selectedItem = myPopUp.exec(globalPos);
 
     if (selectedItem->text() == QString("Run ...")) {
-        parseText(w->ui->editorWidget
+        parseText(std::string(
+                    w->ui->editorWidget
                    ->document()
-                   ->toPlainText().toStdString(),
+                   ->toPlainText().toStdString()),
         0);
     }  else
     if (selectedItem->text() == QString("Insert template ..."))

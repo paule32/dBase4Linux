@@ -21,6 +21,11 @@ MainWindow::MainWindow(QWidget *parent) :
             this,
             &MainWindow::on_SaveFile);
 
+    connect(ui->actionSpeichern_unter,
+            &QAction::triggered,
+            this,
+            &MainWindow::on_SaveFileAs);
+
     connect(ui->actionAbout_Qt,
             &QAction::triggered,
             this,
@@ -198,6 +203,38 @@ void MainWindow::on_SaveFile()
         }
     }
 }
+
+void MainWindow::on_SaveFileAs()
+{
+    //if (editor->document()->isModified())
+    {
+        editor->document()->setModified(false);
+        QString fname = editor->documentTitle();
+        if (fname.length() < 1) {
+            fname = QFileDialog::getSaveFileName(
+            this,
+            tr("Save File As ..."),
+            QString(QDir::homePath() + fname),
+            "Forms *.frm (*.frm);;Programs *.prg (*.prg);;All Files *.* (*.*)");
+            if (fname.length() > 1) {
+                QFile f(fname); f.open(
+                QIODevice::WriteOnly  |
+                QIODevice::Truncate   |
+                QIODevice::Text);
+
+                QString src = editor->document()->toPlainText();
+
+                QTextStream out(&f);
+                out.setCodec("UTF-8");
+                out.setGenerateByteOrderMark(false);
+                out << src;
+
+                f.close();
+            }
+        }
+    }
+}
+
 
 void MainWindow::on_FileOpen(int state)
 {

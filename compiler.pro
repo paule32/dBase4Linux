@@ -152,7 +152,9 @@ DISTFILES += \
     source/html/bewerber.xsl \
     source/html/index.html \
     examples/Form1.frm \
-    examples/example1.prg
+    examples/example1.prg \
+    ../media/sdb1/e-learning/mov/speech/doc/images/neuron.png \
+    ../media/sdb1/e-learning/mov/speech/doc/notizen.tex
 
-LIBS += -L"/usr/local/lib64" -L/dbase/lib -lstdc++
+LIBS += -L"/usr/local/lib64" -L/srv/Projekte/dbase/lib -lstdc++
 LIBS += -lmod_dbase

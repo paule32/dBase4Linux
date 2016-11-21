@@ -11,10 +11,13 @@
 #include <boost/spirit/include/phoenix_object.hpp>
 #include <boost/spirit/include/phoenix_container.hpp>
 #include <boost/spirit/include/phoenix_statement.hpp>
+#include <boost/phoenix/object/construct.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <iostream>
+#include <exception>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -59,10 +62,11 @@ namespace client
          op_and,         //  logical and top two stack entries
          op_or,          //  logical or top two stack entries
 
+         op_add_var,     //  add new variable
          op_load,        //  load a variable
          op_store,       //  store a variable
 
-         op_int,         //  push constant integer into the stack
+         op_double,      //  push constant integer into the stack
          op_true,        //  push constant 0 into the stack
          op_false,       //  push constant 1 into the stack
 
@@ -93,6 +97,31 @@ namespace client
          std::vector<int> stack;
      };
 
+     struct error_handler_
+     {
+         template <typename, typename, typename>
+         struct result { typedef void type; };
+
+         template <typename Iterator>
+         void operator()(
+             info const& what
+           , Iterator err_pos, Iterator last) const
+         {
+             printf("EEEEEEEEEEEEEEEEEERRRRRR\n");
+             std::stringstream ss;
+             ss  << "Error! Expecting "
+                 << what                         // what failed?
+                 << " here: \""
+                 << std::string(err_pos, last)   // iterators to error-pos, end
+                 << "\""
+                 << std::endl
+             ;
+             std::cout << ss.str();
+             QMessageBox::information(0,"Parser", ss.str().c_str());
+         }
+     };
+     boost::phoenix::function<client::error_handler_> const error_handler = client::error_handler_();
+
      template <typename Iterator>
      struct dbase_skipper : public qi::grammar<Iterator>
      {
@@ -106,20 +135,18 @@ namespace client
              using qi::on_error;
              using qi::fail;
 
-             using phoenix::val;
-
-             my_skip = (char_("[ \t\n\r]"))                            |
-             ("**" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
-             ("&&" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
-             ("//" >> *(char_ - eol) >> (eol | eoi | char_("[\n\r]"))) |
-             ("/*" >> *(char_ - "*/") >> "*/")
+             my_skip =  (char_("[ \t\n\r]"))                            |
+             ("**" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
+             ("&&" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
+             ("//" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
+             ("/*" >> *((char_("äöüÄÖÜß") | char_) - "*/") >> "*/")
              ;
 
              on_error<fail>
               (
                   my_skip
                 , std::cout
-                      << val("Error! Expecting comment")
+                      << boost::phoenix::val("Error! Expecting comment")
                       << std::endl
               );
 
@@ -128,39 +155,81 @@ namespace client
          qi::rule<Iterator> my_skip;
      };
 
+     struct my_ops {
+         byte_code op_code;
+         std::string name;
+         double value;
+     };
+     std::vector<struct my_ops> code;
+
      struct compile_op
      {
          template <typename A, typename B = unused_type, typename C = unused_type>
          struct result { typedef void type; };
 
-         compile_op() { QMessageBox(0,"sssss","poxoxoxooxox111111111"); }
-         compile_op(std::vector<int> code)
+         compile_op() { }
+         compile_op(std::vector<my_ops> _code)
          {
-             QMessageBox::information(0,"sssss","poxoxoxooxox");
-             code = code;
-             QMessageBox::information(0,"sssss","poxoxoxooxox222222");
+             cout << "weiter00000" << endl;
+             code = _code;
+             cout << "weiter11111" << endl;
          }
 
-         void operator()(int a) const
+
+         void operator()(const byte_code&, boost::spirit::unused_type& ut) const
          {
-             code.push_back(a);
+             cout << "unnnnn" << endl;
          }
 
-         void operator()(int a, int b) const
+         void operator()(const byte_code &a) const
          {
-             code.push_back(a);
-             code.push_back(b);
+             cout << "weiter22222" << endl;
+
+             struct my_ops my_pspush;
+             my_pspush.op_code = a;
+             my_pspush.name    = "";
+             my_pspush.value   = 0.00;
+             code.push_back(my_pspush);
+
+             cout << "weiter333333" << endl;
          }
 
-         void operator()(int a, int b, int c) const
+         void operator()(const byte_code &a, double &b) const
+         {
+             cout << "weiter4444444" << endl;
+
+             struct my_ops my_pspush;
+             my_pspush.op_code = a;
+             my_pspush.name    = "";
+             my_pspush.value   = b;
+             code.push_back(my_pspush);
+
+             cout << "weiter55555" << endl;
+         }
+
+         void operator()(const byte_code &a, const std::string &b) const
+         {
+             cout << "weiter1" << endl;
+             cout << b << endl;
+             cout << "weiter2" << endl;
+
+             struct my_ops my_pspush;
+             my_pspush.op_code = a;
+             my_pspush.name    = b;
+             my_pspush.value   = 0.00;
+             code.push_back(my_pspush);
+         }
+
+         /*
+         void operator()(byte_code a, byte_code b, byte_code c)
          {
              code.push_back(a);
              code.push_back(b);
              code.push_back(c);
-         }
-
-         std::vector<int> code;
+         }*/
      };
+
+
 
      template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
      struct dbase_grammar : public qi::grammar<Iterator, Skipper>
@@ -168,6 +237,8 @@ namespace client
          qi::rule<Iterator, Skipper> start, run_app;
          dbase_grammar()  : dbase_grammar::base_type(start)
          {
+             std::stringstream ident_buffer;
+
              using boost::spirit::ascii::no_case;
 
              using qi::lit;
@@ -177,76 +248,103 @@ namespace client
              using qi::on_error;
              using qi::fail;
 
-             using phoenix::construct;
-             using phoenix::val;
-
              start = * symsbols;
 
-             expression    = equality_expr.alias() ;
+             expression    = equality_expr.alias();
              equality_expr =
-                     relational_expr
-                     >> *(   ("==" > relational_expr     [op(op_eq)])
-                         |   ("!=" > relational_expr     [op(op_neq)])
-                         )
-                     ;
+                 relational_expr
+                 >> *(   ("==" > relational_expr     [op(op_eq)])
+                     |   ("!=" > relational_expr     [op(op_neq)])
+                     )
+                 ;
 
-                 relational_expr =
-                     logical_expr
-                     >> *(   ("<=" > logical_expr        [op(op_lte)])
-                         |   ('<' > logical_expr         [op(op_lt)])
-                         |   (">=" > logical_expr        [op(op_gte)])
-                         |   ('>' > logical_expr         [op(op_gt)])
-                         )
-                     ;
+             relational_expr =
+                 logical_expr
+                 >> *(   ("<=" > logical_expr        [op(op_lte)])
+                     |   ('<' > logical_expr         [op(op_lt)])
+                     |   (">=" > logical_expr        [op(op_gte)])
+                     |   ('>' > logical_expr         [op(op_gt)])
+                     )
+                 ;
 
-                 logical_expr =
-                     additive_expr
-                     >> *(   (lit(".and.") > additive_expr       [op(op_and)])
-                         |   (lit(".or.")  > additive_expr       [op(op_or)])
-                         )
-                     ;
+             logical_expr =
+                 additive_expr
+                 >> *(   (lit(".and.") > additive_expr       [op(op_and)])
+                     |   (lit(".or.")  > additive_expr       [op(op_or)])
+                     )
+                 ;
 
-                 additive_expr =
-                     multiplicative_expr
-                     >> *(   ('+' > multiplicative_expr  [op(op_add)])
-                         |   ('-' > multiplicative_expr  [op(op_sub)])
-                         )
-                     ;
+             additive_expr =
+                 multiplicative_expr
+                 >> *(   ('+' > multiplicative_expr  [op(op_add)])
+                     |   ('-' > multiplicative_expr  [op(op_sub)])
+                     )
+                 ;
 
-                 multiplicative_expr =
-                     unary_expr
-                     >> *(   ('*' > unary_expr           [op(op_mul)])
-                         |   ('/' > unary_expr           [op(op_div)])
-                         )
-                     ;
+             multiplicative_expr =
+                 unary_expr
+                 >> *(   ('*' > unary_expr           [op(op_mul)])
+                     |   ('/' > unary_expr           [op(op_div)])
+                     )
+                 ;
 
-                 unary_expr =
-                         primary_expr
-                     |   ('!' > primary_expr             [op(op_not)])
-                     |   ('-' > primary_expr             [op(op_neg)])
-                     |   ('+' > primary_expr)
-                     ;
+             unary_expr =
+                     primary_expr
+                 |   ('!' > primary_expr             [op(op_not)])
+                 |   ('-' > primary_expr             [op(op_neg)])
+                 |   ('+' > primary_expr)
+                 ;
 
-                 primary_expr =
-                     uint_                               [op(op_int, _1)]
-                     |   variable
-                     |   lit("true")                     [op(op_true)]
-                     |   lit("false")                    [op(op_false)]
-                     |   '(' > expression > ')'
-                     ;
+             primary_expr =
+                 double_                             [op(op_double , _1)]
+                 |   variable                        [op(op_add_var, _1)]
+                 |   lit("true")                     [op(op_true)]
+                 |   lit("false")                    [op(op_false)]
+                 |   ( '(' > expression > ')' )
+                 ;
 
-                 variable = symbol_alpha;
 
+
+             symbol_expr =
+             term                                [ op(op_add,_1) ]
+                 >> *(   ('+' >> term            [ op(op_add) ])
+                     |   ('-' >> term            [ op(op_sub) ])
+                     )
+                 ;
+
+             term =
+                 factor                          [ op(op_add,_1)]
+                 >> *(   ('*' >> factor          [ op(op_mul) ])
+                     |   ('/' >> factor          [ op(op_div) ])
+                     )
+                 ;
+
+             factor =
+                 +double_                        [ op(op_add) ]
+                 |  '('   >> symbol_expr         [ op(op_add) ] >> ')'
+                 |   ('-' >> factor              [ op(op_neg) ] )
+                 |   ('+' >> factor              [ op(op_add) ] )
+                 ;
+
+
+             variable = symbol_alpha
+                [
+                    _val = _1
+                ]
+                ;
+
+
+             symbol_def_expr %=
+                (symbol_alpha >> qi::lit('=') >> symbol_expr)
+                ;
 
              symsbols %=
                    symbol_def_parameter  |
                    symbol_def_local |
+                   symbol_def_if |
                    symbol_def_class |
-                   symbol_def_if
-                     |
-                 ((symbol_alpha  > qi::char_('=') > expression >> start) |
-                  (symbol_alpha  > qi::char_('=') > expression         ))
-                 ;
+                   symbol_def_expr
+                  ;
 
              symbol_class     = lexeme[no_case["class"]];
              symbol_of        = lexeme[no_case["of"]];
@@ -267,20 +365,24 @@ namespace client
 
              symbol_def_class %= symbol_def_class_inner;
              symbol_def_class_inner %=
-                   symbol_class >> symbol_alpha >> symbol_of >> symbol_alpha >>
-                 * symbol_def_stmts
-                 > symbol_endclass;
+                    symbol_class                    
+                 >  symbol_alpha
+                 >  symbol_of
+                 >  symbol_alpha >> *(
+                    symbol_def_stmts ) > symbol_endclass;
 
              symbol_def_if %= symbol_def_if_inner;
              symbol_def_if_inner %=
-                   symbol_if >> '(' >> expression >> ')' >>
-                 * symbol_def_stmts
-                 > symbol_endif;
+                    symbol_if > '(' > expression > ')' >>
+                 * (symbol_def_stmts | symbol_else)
+                 >  symbol_endif;
+
 
              symbol_def_stmts %=
-                   symbol_def_if |
-                   symbol_def_class
-                 ;
+                  (symbol_def_expr ) |
+                  (symbol_def_class) |
+                  (symbol_def_if   ) 
+                  ;
 
              symbol_space =
                  +(qi::char_(" \t\n\r") | eol | eoi)
@@ -289,23 +391,17 @@ namespace client
              symbol_alpha %=
                   qi::char_("a-zA-Z_") >>
                  *qi::char_("a-zA-Z0-9_")
+                  [
+                     _val = _1
+                  ]
                  ;
 
              symbol_digit =
                  +(qi::digit)
                  ;
 
-             on_error<fail>
-              (
-                  start
-                , std::cout
-                      << val("Error! Expecting ")
-                      << _4                               // what failed?
-                      << val(" here: \"")
-                      << construct<std::string>(_3, _2)   // iterators to error-pos, end
-                      << val("\"")
-                      << std::endl
-             );
+             qi::on_error<fail>( start, client::error_handler(_4, _3, _2) );
+
 
              BOOST_SPIRIT_DEBUG_NODE(start);
              BOOST_SPIRIT_DEBUG_NODE(symsbols);
@@ -336,13 +432,14 @@ namespace client
              BOOST_SPIRIT_DEBUG_NODE(symbol_local);
          }
 
+         qi::rule<Iterator, Skipper> assignment_rhs;
          qi::rule<Iterator, Skipper>
                  equality_expr, relational_expr
                , logical_expr, additive_expr, multiplicative_expr
-               , unary_expr, primary_expr, variable
+               , unary_expr, primary_expr, variable,  symbol_expr
                ;
 
-         phoenix::function<compile_op> op;
+         boost::phoenix::function<compile_op> op;
 
          qi::rule<Iterator, std::string()>
          symbol_alpha,
@@ -361,10 +458,13 @@ namespace client
          symbol_of,
          symbol_parameter,
 
+
+         symbol_def_expr,
          symbol_def_parameter,
          symbol_def_if,
          symbol_def_if_inner,
          symbol_def_stmts,
+         symbol_def_stmts_rep,
          symbol_def_local,
          symbol_def_class_inner,
          symbol_def_class;
@@ -397,1354 +497,31 @@ bool my_parser(std::string const str)
      }
 
      if (iter != end) {
-         std::cout << "Remaining: '" << std::string(iter, end) << std::endl;
+         std::stringstream ss;
+         ss << "Parsing ERROR" << std::endl
+            << "Remaining: '"
+            << std::string(iter, end)
+            << std::endl;
+
          #ifdef USE_QT
-         QMessageBox::information(0,"Parser", "Parsing ERROR.");
+         QMessageBox::information(0,"Parser", ss.str().c_str());
          #else
          std::cout << "ERROR" << std::endl;
          #endif
          return false;
-     }   return false;
-}
-
-bool parseText(std::string str, int mode)
-{
-     return my_parser(str);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#ifdef _ASDASD_ASDASD_ASD_S_AS_DASDASDASD
-#include "includes/mainwindow.h"
-#include "dBaseWindow.h"
-
-extern "C" {
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-}
-
-#include <iostream>
-#include <sstream>
-#include <cstddef>
-#include <algorithm>
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <map>
-#include <stack>
-#include <exception>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <type_traits>
-
-#include "symbol.h"
-#include "skipper.h"
-
-using namespace std;
-
-int lineno = 1;
-std::string var_name;
-
-
-// --------------------------------
-// exception class for don't match
-// -------------------------------
-class MydBaseMissException: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        std::string msg;
-        msg  = "dBaseException occur.";
-        return msg.c_str();
-    }
-} dBaseMissException;
-
-enum dBaseTypes {
-    unknown,
-    b_value,        // bool
-    p_value,        // parameter
-    if_value,       // if stmt
-    w_value,        // widget type
-    m_value,
-    c_value,
-    i_value         // int type
-};
-
-// actual opcode
-std::string opCode;
-
-struct MopCodes {
-    char   meno[10];    // menomic
-    char   opmen[10];   // ...
-    ushort mtype;       // machine type 8/16/32 bit
-    char   len;         // opcode len
-    int    op1;         // opcode // normal
-    int    op2;         // ...    //  8 bit
-    int    op3;         // ...    // 16 bit
-} _MopCodes[] = {
-    { "add", "al" ,  8, 1, 0x04    , 0x0     , 0x0 },    // add al, 1-255        ; 0x04 + n(1-255)
-    { "add", "ah" ,  8, 2, 0xc480  , 0x0     , 0x0 },    // add ah, 1-255        ;  --
-    { "add", "ax" , 16, 2, 0x8366  , 0xc0    , 0x0 },    // add ax, 256-65535
-    { "add", "eax", 32, 1, 0x05    , 0x0     , 0x0 },    // add eax, 32-bit -> + 0x01010000
-    { "add", "rax", 64, 2, 0x0548  , 0x0     , 0x0 },    // add rax, 64-bit -> + 0x01010000
-
-    { "add", "bl" ,  8, 1, 0xc380  , 0x0     , 0x0 },
-    { "add", "bh" ,  8, 2, 0xc780  , 0x0     , 0x0 },
-    { "add", "bx" , 12, 2, 0x8166  , 0xc3    , 0x0 },
-    { "add", "ebx", 32, 2, 0xc381  , 0xc381  , 0x0 },
-    { "add", "rbx", 64, 3, 0xc38348, 0xc38148, 0x0 },
-
-    { "add", "cl" ,  8, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "ch" ,  8, 2, 0x03    , 0x0     , 0x0 },
-    { "add", "cx" , 12, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "ecx", 32, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "rcx", 64, 1, 0x03    , 0x0     , 0x0 },
-
-    { "add", "dl" ,  8, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "dh" ,  8, 2, 0x03    , 0x0     , 0x0 },
-    { "add", "dx" , 12, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "edx", 32, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "rdx", 64, 1, 0x03    , 0x0     , 0x0 },
-
-    { "add", "cl" ,  8, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "ch" ,  8, 2, 0x03    , 0x0     , 0x0 },
-    { "add", "cx" , 12, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "ecx", 32, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "rcx", 64, 1, 0x03    , 0x0     , 0x0 },
-
-    { "add", "dl" ,  8, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "dh" ,  8, 2, 0x03    , 0x0     , 0x0 },
-    { "add", "dx" , 12, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "edx", 32, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "rdx", 64, 1, 0x03    , 0x0     , 0x0 },
-
-    { "add", "sp" ,  8, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "esp",  8, 2, 0x03    , 0x0     , 0x0 },
-    { "add", "cx" , 12, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "ecx", 32, 1, 0x03    , 0x0     , 0x0 },
-    { "add", "rcx", 64, 1, 0x03    , 0x0     , 0x0 },
-
-    { "nop", ""   ,  8, 1, 0x90    , 0x0     , 0x0 }     // nop
-};
-const int maxOpCodeListSize = 36;
-
-struct MopCodeTmp {
-    char len;
-    int  mtype;
-    int  mop[3];
-    char aop[10];
-};
-
-struct MopCodeTmp myOpCode;
-
-class dBaseStmt {
-public:
-    dBaseTypes  data_type;
-    dBaseTypes  data_type_extra;
-
-    virtual ~dBaseStmt() { }
-};
-
-class dBaseVariable: public dBaseStmt {
-public:
-    dBaseVariable(std::string name, double value) {
-        this->value_double =  value;
-        this->name  = name;
-
-        left  = new dBaseVariable;
-        right = new dBaseVariable;
-    }
-    dBaseVariable() { }
-
-    dBaseVariable *left;
-    dBaseVariable *right;
-
-    double value_double;
-    std::string  name;
-
-    void new_left () { left  = new dBaseVariable; }
-    void new_right() { right = new dBaseVariable; }
-
-    virtual ~dBaseVariable() { }
-};
-
-class dBaseAddExpr: public dBaseVariable {
-public:
-    dBaseAddExpr(double lhs, double rhs)   {
-        if (rhs < lhs) {
-            new_left (); left ->value_double = rhs;
-            new_right(); right->value_double = lhs;
-        }   else {
-            new_left (); left ->value_double = lhs;
-            new_right(); right->value_double = rhs;
-        }
-    }
-    dBaseAddExpr(dBaseAddExpr lhs, double rhs) {
-        if (rhs < lhs.value_double) {
-            new_left (); left ->value_double = rhs;
-            new_right(); right->value_double = lhs.value_double;
-        }   else {
-            new_left (); left ->value_double = lhs.value_double;
-            new_right(); right->value_double = rhs;
-        }
-    }
-    dBaseAddExpr(dBaseVariable& lhs, dBaseVariable &rhs)
-    {
-        if (rhs.value_double < lhs.value_double) {
-            new_left (); left ->value_double = rhs.value_double;
-            new_right(); right->value_double = lhs.value_double;
-        }   else {
-            new_right(); right->value_double = lhs.value_double;
-            new_left (); left ->value_double = rhs.value_double;
-        }
-    }
-    dBaseAddExpr(dBaseVariable*& lhs, dBaseVariable *&rhs)
-    {
-        if (rhs->value_double < lhs->value_double) {
-            new_left (); left ->value_double = rhs->value_double;
-            new_right(); right->value_double = lhs->value_double;
-        }   else {
-            new_right(); right->value_double = lhs->value_double;
-            new_left (); left ->value_double = rhs->value_double;
-        }
-    }
-    virtual ~dBaseAddExpr() { }
-};
-
-class dBaseMulExpr: public dBaseVariable {
-public:
-    dBaseMulExpr(double lhs, double rhs) {
-        if (rhs < lhs) {
-            new_left (); left ->value_double = rhs;
-            new_right(); right->value_double = lhs;
-        }   else {
-            new_left (); left ->value_double = lhs;
-            new_right(); right->value_double = rhs;
-        }
-    }
-    dBaseMulExpr(dBaseAddExpr lhs, double rhs) {
-        if (rhs < lhs.value_double) {
-            new_left (); left ->value_double = rhs;
-            new_right(); right->value_double = lhs.value_double;
-        }   else {
-            new_left (); left ->value_double = lhs.value_double;
-            new_right(); right->value_double = rhs;
-        }
-    }
-    dBaseMulExpr(dBaseVariable& lhs, dBaseVariable& rhs)
-    {
-        if (rhs.value_double < lhs.value_double) {
-            new_left (); left ->value_double = rhs.value_double;
-            new_right(); right->value_double = lhs.value_double;
-        }   else {
-            new_left (); left ->value_double = lhs.value_double;
-            new_right(); right->value_double = rhs.value_double;
-        }
-    }
-    dBaseMulExpr(dBaseAddExpr *& lhs, double rhs)
-    {
-        if (rhs < lhs->value_double) {
-            new_left (); left ->value_double = rhs;
-            new_right(); right->value_double = lhs->value_double;
-        }   else {
-            new_left (); left ->value_double = lhs->value_double;
-            new_right(); right->value_double = rhs;
-        }
-    }
-    dBaseMulExpr(dBaseAddExpr *& lhs, dBaseVariable *& rhs)
-    {
-        if (rhs->value_double < lhs->value_double) {
-            new_left (); left ->value_double = rhs->value_double;
-            new_right(); right->value_double = lhs->value_double;
-        }   else {
-            new_right(); right->value_double = lhs->value_double;
-            new_left (); left ->value_double = rhs->value_double;
-        }
-    }
-    dBaseMulExpr(dBaseMulExpr *& lhs, dBaseAddExpr *& rhs)
-    {
-        if (rhs->value_double < lhs->value_double) {
-            new_left (); left ->value_double = lhs->value_double;
-            new_right(); right->value_double = rhs->value_double;
-        }   else {
-            new_left (); left ->value_double = rhs->value_double;
-            new_right(); right->value_double = lhs->value_double;
-        }
-    }
-    virtual ~dBaseMulExpr() { }
-};
-
-std::vector<dBaseStmt*> stmt;
-bool eval()
-{
-    double res_arr[10];
-    double sum;
-    int flag = 0;
-
-    for (auto it = std::begin(stmt); it != std::end(stmt); ++it)
-    {
-        dBaseVariable *item_1 = dynamic_cast<dBaseStmt*>(*it);
-        if (item_1) {
-            cout << item_1->name << " = " << item_1->value_double << endl;
-            continue;
-        }
-
-        /*
-        dBaseAddExpr *item_2 = dynamic_cast<dBaseStmt*>(*it);
-        if (item_2) {
-            cout << "A===>  " << item_2->value_double << endl;
-            break;
-        }
-
-        dBaseMulExpr *itemB = dynamic_cast<dBaseStmt*>(*it);
-        if (itemB) {
-            if (itemB->value_double != 0) {
-                res_arr[flag++] = itemB->value_double;
-                cout << "B===> " << itemB->value_double << endl;
-
-                if (flag == 3) {
-                    double res =  // claculate: multiplication
-                    res_arr[2] *  // before any other operations
-                    res_arr[1] +  // ...
-                    res_arr[0] ;  itemB->value_double = res;
-
-                    sum  = res ;
-                    flag = 0;
-                    cout << "RES: " << res << endl;
-                }
-            }
-        }
-        */
-    }
+     }
     return false;
 }
 
-const int TOKEN_ERROR  = -1;
-const int TOKEN_OK     =  0;
-const int TOKEN_SYMBOL =  1;
-const int TOKEN_NUMBER =  2;
-const int TOKEN_PARAMETER = 3;
-const int TOKEN_CLASS  =  4;
-
-std::map<std::string, int> token_list = {
-    { "class", TOKEN_CLASS },
-    { "parameter", TOKEN_PARAMETER }
-};
-
-std::string token;
-std::string sourcecode;
-int spos = -1;
-
-int skip(int c)
+bool parseText(std::string const s, int m)
 {
-    if (c == '\t' || c == ' ') {
-        return c;
-    }   else
-    if (c == '\n' || c == '\r') {
-        ++lineno;
-        return c;
-    }
-    return -1;
+    cout << "starter on" << endl;
+    client::code.clear();
+    client::code.resize(10);
+
+    cout << "starter onpopo: \n" << s << endl;
+    bool r = my_parser(s);
+    if (!r) cout << "errrrroorrr\n";
+    else    cout << "tttttrrr\n";
+    return r;
 }
-
-int check_skip()
-{
-    int c = sourcecode[++spos];
-    if (spos > sourcecode.length()) {
-        throw dBaseMissException;
-    }
-    return c;
-}
-
-// ---------------------------------
-// a parser base class for dBase ...
-// ---------------------------------
-#ifdef template_dbase_parser2
-const  int PARSER_DBASE = 1;
-class dBase;
-
-template <class T>
-class ParserCommon {
-public:
-    T& operator = (const T& src) {
-        sourcecode  = src.sourcecode;
-        parser_type = src.parser_type;
-    }
-
-    int parser_type;
-};
-
-class dBase {
-public:
-    dBase() { }
-    dBase(std::string src) { cout << "aaaaaaaa" << endl; }
-
-    bool dbase_handle_white_space()
-    {
-        while (1) {
-            int c = sourcecode[++spos];
-            if (c == ' '  || c == '\t') continue; else
-            if (c == '\n' || c == '\r') {
-                ++lineno;
-                continue;
-            }
-            else {
-                break;
-            }
-        }
-        return true;
-    }
-
-    bool dbase_handle_symbol(int ch = 0)
-    {
-        while (1) {
-            int c = sourcecode[++spos];
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_')
-            {
-                token = c;
-                while (1)
-                {
-                    c = sourcecode[++spos];
-                    if (spos > sourcecode.length()) {
-                        //throw dBaseMissException;
-                        break;
-                    }
-                    if (c == ' '  || c == '\t') { return true; }
-                    if (c == '\n' || c == '\r') {
-                        ++lineno;
-                        return true;;
-                    }
-                    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-                    ||  (c >= '0' && c <= '9') || (c == '_')) {
-                        token += c;
-                        continue;
-                    }
-                }
-            }
-            else return false;
-        }        return false;
-    }
-
-    bool dbase_handle_char(char ch) {
-        return dbase_handle_white_space();
-    }
-};
-
-template <class T>
-class CharParser {
-public:
-    CharParser<T>() { }
-    CharParser<T> operator () (char ch) {
-        if (typeid(T) == typeid(dBase)) {
-            cout << "char:  " << ch << endl;
-            dBase *db  = new dBase;
-            int result = db->dbase_handle_char(ch);
-            delete db;
-        }
-        return *this;
-    }
-};
-
-template <class T>
-class Parser: public ParserCommon<T>, public dBase {
-public:
-    Parser() {}
-    Parser<T>(std::string src) {
-        sourcecode  = src;
-    }
-    bool start(void);
-    Parser<T> operator << (Parser<T> o) {
-        cout << "opser" << endl;
-    }
-    Parser<T> operator << (Skipper<T> skip) {
-        if (typeid(T) == typeid(dBase))  {  }
-        return *this;
-    }
-    Parser<T> operator << (Symbol<T> sym) {
-        if (typeid(T) == typeid(dBase))  { }
-        return *this;
-    }
-    Parser<T> operator << (CharParser<T> sym) {
-        if (typeid(T) == typeid(dBase))  {    }
-        return *this;
-    }
-};
-
-template <class T>
-bool Parser<T>::start(void)
-{
-    QMessageBox::information(w,"ssss","classsler");
-    return true;
-}
-
-namespace dBaseParser {
-Skipper    <dBase> skip;
-Symbol     <dBase> symbol;
-CharParser <dBase> char_;
-}
-
-bool parseCode(std::string src)
-{
-    using namespace dBaseParser;
-    Parser<dBase> g(src);
-
-    g << skip << symbol(std::string("zuulu"))
-      << skip << char_('=')
-      << skip;
-
-    try {
-        bool result = g.start();
-        if (result)
-        QMessageBox::information(w,"text parser","SUCCESS"); else
-        QMessageBox::information(w,"text parser","ERROR");
-
-        return result;
-    }
-    catch (exception& e) {
-        QMessageBox::information(w,"parser error",e.what());
-        return false;
-    }   return false;
-}
-#endif
-
-int skip_white_space(int mode=0)
-{
-    int c;
-    while (1)
-    {
-        c = sourcecode[++spos];
-        if (spos > sourcecode.length()) {
-            //throw dBaseMissException;
-            break;
-        }
-
-        if ((c == '\n') || (c == '\r')) {
-            ++lineno;
-            continue;
-        }
-
-        if ((c == '\t') || (c == ' ')) {
-            continue;
-        }
-
-        // ------------------
-        // assembler comment
-        // ------------------
-        if (c == ';' && mode) {
-            cout << "comment" << endl;
-            while (1) {
-                c = sourcecode[++spos];
-                if (c == '\n' || c == '\r') {
-                    ++lineno;
-                    break;
-                }
-            }
-            continue;
-        }
-
-        if (mode == 2) {
-            if (c == ',') continue;
-        }
-
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_')
-        {
-            token = c;
-            while (1)
-            {
-                c = sourcecode[++spos];
-                if (spos > sourcecode.length()) {
-                    throw dBaseMissException;
-                    break;
-                }
-                if (c == ',') goto etok;
-                if (c == ' '  || c == '\t') {
-                    if (token == "nop")
-                    return TOKEN_SYMBOL; else
-                    goto etok;
-                }
-                if (c == '\n' || c == '\r') {
-                    ++lineno;
-                    if (token == "nop")
-                    return TOKEN_SYMBOL; else
-                    goto etok;
-                }
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-                ||  (c >= '0' && c <= '9') || (c == '_')) {
-                    token += c;
-                }   else {
-                    etok:
-                    if (mode == 1) {
-                        for (int i = 0; i < maxOpCodeListSize; ++i)   {
-                        if (!strcmp(_MopCodes[i].meno,token.c_str())) {
-                            strcpy(myOpCode.aop,_MopCodes[i].meno);
-                            myOpCode.mop[0] = _MopCodes[i].op1;
-                            myOpCode.mop[1] = _MopCodes[i].op2;
-                            myOpCode.mop[2] = _MopCodes[i].op3;
-
-                            myOpCode.len    = _MopCodes[i].len;
-                            myOpCode.mtype  = _MopCodes[i].mtype;
-
-                            return TOKEN_SYMBOL;
-                        }}  return TOKEN_ERROR;
-                    }
-                    else if (mode == 2) {
-                        for (int i = 0; i < maxOpCodeListSize; ++i)   {
-                        if (!strcmp(_MopCodes[i].opmen,token.c_str())){
-                            strcpy(myOpCode.aop,_MopCodes[i].meno);
-                            myOpCode.mop[0] = _MopCodes[i].op1;
-                            myOpCode.mop[1] = _MopCodes[i].op2;
-                            myOpCode.mop[2] = _MopCodes[i].op3;
-
-                            myOpCode.len   = _MopCodes[i].len;
-                            myOpCode.mtype = _MopCodes[i].mtype;
-
-                            return TOKEN_SYMBOL;
-                        }}  return TOKEN_ERROR;
-                    }
-                    else {
-                        for(auto const &atoken : token_list)
-                        {
-                            if (atoken.first == token)
-                            return atoken.second;
-                        }
-                    }
-                    return TOKEN_SYMBOL;
-                }
-            }
-        }
-
-        else if (c == '0') {
-            token = c;
-            while (1)     {
-                c = sourcecode[++spos];
-                if (spos > sourcecode.length()) {
-                    //throw dBaseMissException;
-                    break;
-                }   else
-                if (c == '.') {     // double
-                    token += c;
-                    while (1)     {
-                        c = sourcecode[++spos];
-                        if (spos > sourcecode.length()) {
-                            //throw dBaseMissException;
-                            break;
-                        }
-                        if (c == ' '  || c == '\t') return TOKEN_NUMBER;
-                        if (c == '\n' || c == '\r') {
-                            ++lineno;
-                            return TOKEN_NUMBER;
-                        }
-                        if (c >= '0'  && c <= '9' ) {
-                            token += c;
-                            continue;
-                        }   else {
-                            --spos;
-                            //return skip(TOKEN_NUMBER);
-                        }
-                    }
-                    return TOKEN_ERROR;
-                }   else
-                if (c == 'x' || c == 'X') {  // hex todo
-                }   else
-                if (c == '\t' || c == ' ' ) break;
-                if (c == '\n' || c == '\r') {
-                    ++lineno;
-                    break;
-                }
-            }
-            return TOKEN_NUMBER;
-        }
-
-        else if (c >= '1' && c <= '9') {
-            token = c;
-            while (1)     {
-                c = sourcecode[++spos];
-                if (spos > sourcecode.length()) {
-                    //throw dBaseMissException;
-                    break;
-                }
-                if (c == '.') { token += c; continue; }
-                if (c == '+') {
-                    --spos;
-                    return TOKEN_NUMBER;
-                }
-                if (c == '\t' || c == ' ')  { return TOKEN_NUMBER; }
-                if (c == '\n' || c == '\r') {
-                    ++lineno;
-                    return TOKEN_NUMBER;
-                }
-                if (c >= '0' && c <= '9') {
-                    token += c;
-                    continue;
-                }   else {
-                    --spos;
-                    //return skip(TOKEN_NUMBER);
-                }
-            }
-            cout << "ME: " << token << endl;
-            return TOKEN_NUMBER;
-        }
-
-
-        if (c == '&') {
-            c = sourcecode[++spos];
-            if (spos > sourcecode.length()) {
-                //throw dBaseMissException;
-                break;
-            }
-            if (c == '&') {             // c++ style comment
-                while (1)
-                {
-                    c = sourcecode[++spos];
-                    if (spos > sourcecode.length()) {
-                        //throw dBaseMissException;
-                        break;
-                    }
-                    if (c == '\n' || c == '\r') {
-                        ++lineno;
-                        break;
-                    }
-                }
-            }
-        }
-
-        else if (c == '/') {
-            c = sourcecode[++spos];
-            if (spos > sourcecode.length()) {
-                //throw dBaseMissException;
-                break;
-            }
-            if (c == '/') {             // c++ style comment
-                while (1)
-                {
-                    c = sourcecode[++spos];
-                    if (spos > sourcecode.length()) {
-                        //throw dBaseMissException;
-                        break;
-                    }
-                    if (c == '\n' || c == '\r') {
-                        ++lineno;
-                        break;
-                    }
-                }
-            }
-            else if (c == '*')      // c style comment
-            {
-                while (1)
-                {
-                    c = sourcecode[++spos];
-                    if (spos > sourcecode.length()) {
-                        //throw dBaseMissException;
-                        break;
-                    }   else
-                    if (c == '\n' || c == '\r') {
-                        ++lineno;
-                        continue;
-                    }   else
-                    if (c == '/') {
-                        break;
-                    }
-                }
-                continue;
-            }
-        }
-
-        else if (c == '*') {
-            while (1) {
-                c = sourcecode[++spos];
-                //printf("tips: %d, %c\n",c,c);
-                if (spos > sourcecode.length()) {
-                    //throw dBaseMissException;
-                    break;
-                }
-                if (c == '*') {  // dbase comment **
-                    while (1) {
-                        int c = sourcecode[++spos];
-                        if (spos > sourcecode.length()) {
-                            //throw dBaseMissException;
-                            break;
-                        }   else
-                        if (c == '\t' || c == ' ') continue;
-                        if (c == '\n' || c == '\r') {
-                            ++lineno;
-                            break;
-                        }   else {
-                            continue;
-                        }
-                    }
-                    cout << "dbase coomm" << endl;
-                    break;
-                }
-
-                if (c == ' '  || c == '\t') { return '*'; }
-                if (c == '\n' || c == '\r') {
-                    ++lineno;
-                    return c;
-                }
-                else if (c >= '1' && c <= '9') {
-                    token = c;
-                    static int flag = 0;
-                    while (1)     {
-                        if (c == '-') {
-                            if (flag == 0) {
-                                flag = 1;
-                                token = std::string("-") + token;
-                            }
-                        }
-                        if ((c >= '0' && c <= '9') || (c == '.')) {
-                            token += c;
-                            continue;
-                        }
-                        else if (c == '.') {
-                            token += c;
-                            continue;
-                        }
-                        else if (c == ' '  || c == '\t') {
-                            cout << ":: " << token << endl;
-                            flag = 0;
-                            return TOKEN_NUMBER;
-                        }
-                        else if (c == '\n' || c == '\r') {
-                            ++lineno;
-                            flag = 0;
-                            cout << "---" << endl;
-                            return TOKEN_NUMBER;
-                        }   else {
-                            flag = 0;
-                            --spos;
-                            cout << "===" << endl;
-                            return TOKEN_NUMBER;
-                        }
-                    }
-                }
-            }
-        }
-
-        else if (c == '-') {
-            token = c;
-            c = sourcecode[++spos];
-            if (c >= '1' && c <= '9') {
-                token += c;
-                while (1) {
-                    c = sourcecode[++spos];
-                    if ((c >= '0' && c <= '9') || (c == '.')) {
-                        token += c;
-                        continue;
-                    }   else
-                    if (c == '\t' || c == ' ' ) return TOKEN_NUMBER;
-                    if (c == '\n' || c == '\r') {
-                        ++lineno;
-                        return TOKEN_NUMBER;
-                    }   else
-                    if (c == '.')   continue;
-                    if (c == '+') { return '+'; }
-                    if (c == '*') { return '*'; }
-                    if (c == '-') { return '-'; }
-                }
-            }
-            else if (c == ' '  || c == '\t') { return '-'; }
-            else if (c == '\n' || c == '\r') {
-                ++lineno;
-                return '-';
-            }
-            else {
-                return '-';
-            }
-        }
-
-        if (c == '=') break;
-        if (c == '+') break;
-
-    }
-    return c;
-}
-
-bool expr(void)
-{
-    int c  = skip_white_space();
-    if (c != TOKEN_NUMBER) {
-        return false;
-    }   return true;
-}
-
-double get_expr(double pre)
-{
-    double prev  = 0.00;
-    double aprev = 0.00;
-    double pprev = 0.00;
-
-    prev = atof(token.c_str());
-    int c;
-
-    n1:
-    c = skip_white_space();
-    if (c == '+')
-    {
-        if (expr())
-        {
-            cout << "pvor:  " << aprev << endl;
-            cout << "prev:  " << prev  << endl;
-            cout << "adds:  " << token << endl;
-
-            double r1  = atof(token.c_str());
-            double r2  = 0.00;
-            double res = 0.00;
-
-            int c = skip_white_space();
-            if (c == '*') {
-                if (expr()) {
-                    r2 = r1 * atof(token.c_str()) + prev;
-                    cout << "add2:  " << token << endl;
-                    cout << "zwre:  " << r2    << endl;
-
-                    prev = r2;
-                    res  = r2;
-                }
-            }
-            else if (c == '-') {
-                res = r1 + prev;
-                cout << "res1: " << res << endl;
-                if (expr()) {
-                    res  = res - atof(token.c_str());
-                    prev = res;
-                    cout << "tok2:  " << res << endl;
-                }
-            }
-            else if (c == '+') {
-                double r3 = prev + r1;
-                cout << "r22:  " << r3 << endl;
-                if (expr()) {
-                    res = atof(token.c_str());
-                    prev = res;
-                    cout << "next: " << prev << endl;
-                }
-            }
-            else {
-                double r3 = prev + r1;
-                res  = r3;
-                prev = res;
-                cout << "r2 = " << r3 << endl;
-            }
-
-            //expr_queue.push(atof(token.c_str()));
-
-            aprev = atof(token.c_str());
-            //double res = prev;
-
-            //auto expr = new dBaseVariable(var_name,res);
-            prev = res; //expr->value_double;
-
-            cout << "A:> " << " = " << res << endl;
-            goto n1;
-        }
-    }
-    else if (c == '-')
-    {
-        if (expr())
-        {
-            cout << "pvor:  " << aprev << endl;
-            cout << "prev:  " << prev  << endl;
-            cout << "subs:  " << token << endl;
-
-            double r1  = atof(token.c_str());
-            double r2  = 0.00;
-            double res = 0.00;
-
-            int c = skip_white_space();
-            if (c == '*') {
-                if (expr()) {
-                    r2   = atof(token.c_str());
-                    r2   = (r1   * r2);
-                    prev = (prev - r2);
-
-                    cout << "sub2:  " << token << endl;
-                    cout << "zwre:  " << prev  << endl;
-
-                    res  = prev;
-                }
-            }
-            else if (c == '-') {
-                if (expr()) {
-                    r2  = atof(token.c_str());
-                    res = prev - r1 - r2;
-
-
-                    cout << "tok3:  " << res << endl;
-                }
-            }
-            else if (c == '+') {
-                cout << "plusser" << endl;
-                if (expr()) {
-                    r2   = prev - r1 - atof(token.c_str());
-                    res  = r2;
-                    prev = res;
-                    //res = prev + r1 + r2;
-                    cout << "tok5:  " << res << endl;
-                }
-            }
-            else {
-                cout << "pre4:  " << prev << endl;
-                res = prev - r1;
-                cout << "r5 = " << res << endl;
-            }
-
-            //expr_queue.push(atof(token.c_str()));
-
-            aprev = atof(token.c_str());
-
-            //auto expr = new dBaseVariable(var_name,res);
-            prev = res; //expr->value_double;
-
-            cout << "A:> " << " = " << res << endl;
-            goto n1;
-        }
-    }
-    else if (c == '*')
-    {
-        if (expr())
-        {
-            cout << "pvor:  " << aprev << endl;
-            cout << "prev:  " << prev  << endl;
-            cout << "muls:  " << token << endl;
-
-            double r1  = atof(token.c_str());
-            double r2  = 0.00;
-            double res = 0.00;
-
-            int c = skip_white_space();
-            if (c == '*') {
-                if (expr()) {
-                    r2   = atof(token.c_str());
-                    r2   = (r1   * r2);
-                    prev = (prev - r2);
-
-                    cout << "sub2:  " << token << endl;
-                    cout << "zwre:  " << prev  << endl;
-
-                    res  = prev;
-                }
-            }
-            else if (c == '-') {
-                if (expr()) {
-                    r2  = atof(token.c_str());
-                    res = prev - r1 - r2;
-
-                    cout << "tok3:  " << res << endl;
-                }
-            }
-            else if (c == '+') {
-                cout << "plusser" << endl;
-                if (expr()) {
-                    double r3 = 0.00;
-                    r2 = atof(token.c_str());
-                    r3 = r2 * prev;
-                    res = r3;
-                    prev = res;
-
-                    cout << "tok3:  " << res << endl;
-                }
-            }
-            else {
-                cout << "pre4:  " << prev << endl;
-                res = prev - r1;
-                cout << "r3 = " << res << endl;
-            }
-
-            //expr_queue.push(atof(token.c_str()));
-
-            aprev = atof(token.c_str());
-
-            //auto expr = new dBaseVariable(var_name,res);
-            prev = res; //expr->value_double;
-
-            cout << "A:> " << " = " << res << endl;
-            goto n1;
-        }
-    }
-    return prev;
-}
-
-bool parse_code(std::string src)
-{
-    sourcecode = src;
-    int c;
-
-    while (1)
-    {
-        c = skip_white_space();
-        if (c == TOKEN_SYMBOL) {
-            var_name = token;
-            c  = skip_white_space();
-            if (c == '=')
-            {
-                QMessageBox::information(w,"1212121","var");
-                if (expr())  {
-                    cout << "222" << endl;
-                    double res = get_expr(atof(token.c_str()));
-                    dBaseVariable *var = new
-                    dBaseVariable(var_name,res);
-
-                    cout << "444" << endl;
-                    cout << var_name << " = " << res << endl;
-                    continue;
-                }
-            }
-            else break;
-        }
-        else if (c == TOKEN_PARAMETER) {
-            QMessageBox::information(w,"text parser","parameter");
-            c = skip_white_space();
-            if (c == TOKEN_SYMBOL) {
-                QMessageBox::information(w,"text parser","var");
-                continue;
-            }
-            else break;
-        }
-        else
-        break;
-    }
-
-    return true ;
-}
-
-void Capitalize(std::string &str)
-{
-    int i = 0;
-    int c;
-    while (str[i]) {
-        c = str[i];
-        str[i] = tolower(c);
-        i++;
-    }
-}
-
-static FILE *AsmBinOutput = nullptr;
-
-template <class T>
-void endswap(T *objp)
-{
-    unsigned char *memp = reinterpret_cast<unsigned char*>(objp);
-    std::reverse(memp, memp + sizeof(T));
-}
-
-void write_code(FILE *f, struct MopCodeTmp op, int num=0, bool nf=false)
-{
-    int x = op.mop[0];
-    char buffer[100];
-
-    // ---------
-    // add al ...
-    // ---------
-    if (x == 0x0548) {                 // add rax
-        sprintf(buffer, "%04x",num);
-        sscanf (buffer, "%x"  ,&x );
-
-        fwrite(&op.mop[0],2,1,f);
-        fwrite(&x,sizeof(int),1,f);
-    }
-    else if (x == 0x05)                // add eax
-    {
-        sprintf(buffer, "%08x",num);
-        sscanf (buffer, "%x"  ,&x );
-
-        fwrite(&op.mop[0],1,1,f);
-        fwrite(&x,sizeof(int),1,f);
-    }
-    else if (x == 0x8366)               // add ax
-    {
-        fseek(f,-1,SEEK_CUR);
-
-        if (num < 0x100) {
-            fwrite(&x,2,1,f);
-
-            sprintf(buffer, "%01x", num);
-            sscanf (buffer, "%x"  , &x );
-
-            int c = 0xc0;
-
-            fwrite(&c,1,1,f);
-            fwrite(&x,1,1,f);
-        }
-        else if (num > 0x100) {
-            buffer[1] = 0x05;
-            buffer[0] = 0x66;
-
-            fwrite(buffer,2,1,f);
-
-            sprintf(buffer, "%02x", num);
-            sscanf (buffer, "%x"  , &x );
-
-            fwrite(&x,2,1,f);
-        }
-    }
-    else if (x == 0xc480) {             // add ah
-        sprintf(buffer, "%01x", num);
-        sscanf (buffer, "%01x", &x );
-
-        fwrite(&op.mop[0],2,1,f);
-        fwrite(&x,2,1,f);
-    }
-    else if (x == 0x04) {               // add al
-        sprintf(buffer, "%01x", num);
-        sscanf (buffer, "%01x", &x );
-
-        fwrite(&op.mop[0],1,1,f);
-        fwrite(&x,1,1,f);
-    }
-
-    // ----------
-    // add bl...
-    // ----------
-    else if (x == 0xc380) {             // add bl
-        fwrite(&op.mop[0],2,1,f);
-        fwrite(&num,1,1,f);
-    }
-    else if (x == 0xc780) {             // add bh
-        fwrite(&x,2,1,f);
-        fwrite(&num,1,1,f);
-    }
-    else if (x == 0x8166)             // add bx
-    {
-        fwrite(&x,2,1,f); x = 0xc3;
-        fwrite(&x,1,1,f);
-        fwrite(&num,2,1,f);
-    }
-    else if (x == 0xc381)
-    {                                    // add ebx
-        fwrite(&x,2,1,f);
-        fwrite(&num,sizeof(int) ,1,f);
-    }
-    else if (x == 0x90) {
-        cout << "noppser" << endl;
-        fwrite(&x,1,1,f);
-    }
-    else {
-        cout << "plupso" << endl;
-    }
-}
-
-void assemble_code(FILE *f, std::string code)
-{
-    sourcecode = code;
-    int c;
-    int mode = 1;
-    while (1) {
-        c = skip_white_space(1);
-        cout << c << endl;
-        if (c == TOKEN_SYMBOL) {            // left menomic
-            std::string meno = token;
-            cout << token << endl;
-
-            if (token != "nop") {
-                c = skip_white_space(2);
-                if (c == TOKEN_SYMBOL)          // op
-                {
-                    std::string meno_op = token;
-                    cout << "----> " << token << endl;
-
-                    c = skip_white_space(2);     // value
-                    if (c == TOKEN_NUMBER) {
-
-                        cout << "add number: " << token << endl;
-
-                        write_code(f,myOpCode,atoi(token.c_str()),true);
-                        continue;
-                    }
-                }
-            }
-            else {
-                myOpCode.mop[0] = 0x90;
-                write_code(f,myOpCode);
-            }
-        }
-        else break;
-    }
-}
-
-bool Assemble(void)
-{
-    std::string code = R"(
-;
-; test comment
-;
-    nop
-    add al , 2   ; comment after instruction
-; next
-    add al, 3
-            add ah, 12
-
-            add ax, 257
-
-            add eax, 257
-
-            add rax, 32
-
-            nop
-
-            add bl, 6
-            add bh, 9
-            add bx, 12
-
-            nop
-
-            add bx, 13
-
-            add ebx, 257
-
-            nop
-
-
-)";
-
-    if ((AsmBinOutput = fopen("a.out","w+b")) == NULL)
-    {
-        QMessageBox::information(w,"File Open Error","Output file could not be open.");
-        return false;
-    }
-
-    assemble_code(AsmBinOutput,code);
-    fclose(AsmBinOutput);
-    return true;
-}
-
-bool parseText(QString text, int mode)
-{
-    std::string source_code = R"(
-
-// xxxxxx
-** comment
-** dddd
-        // ddsd
-&& xxxxx
-   /*
-   fff */
-Azrael = -1.2 + 0.4 //+ 6 - 7 - 2 - 2 + 2 + 3
-
-)";
-
-    spos = -1;
-    //return Assemble();
-
-    parse_code(source_code);
-    eval();
-
-    //Parser<dBase> parse(text.toStdString());
-
-}
-#endif
