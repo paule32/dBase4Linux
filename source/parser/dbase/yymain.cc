@@ -220,35 +220,87 @@ namespace client
              code.push_back(my_pspush);
          }
 
-         /*
-         void operator()(byte_code a, byte_code b, byte_code c)
-         {
-             code.push_back(a);
-             code.push_back(b);
-             code.push_back(c);
-         }*/
+        void operator()(byte_code a, byte_code b, byte_code c)
+        {
+			std::cout << "ifffererer" << std::endl;
+//             code.push_back(a);
+//             code.push_back(b);
+//             code.push_back(c);
+         }
      };
 
 
+	template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
+	struct dbase_keyword : public qi::grammar<Iterator, Skipper>
+	{
+											// keyword - help-id
+		struct keywordSymbols : qi::symbols<std::string, unsigned int>
+		{
+			keywordSymbols()
+			{
+				add
+				(std::string("if"), 		1)
+				(std::string("of"), 		2)
+				(std::string("else"),		3)
+				(std::string("class"),		4)
+				(std::string("endif"),		5)
+				(std::string("local"),		6)
+				(std::string("return"), 	7)
+				(std::string("endclass"),	8)
+				(std::string("function"),	9)
+				(std::string("parameter"),	10)
+				(std::string("procedure"),	11)
+				;
+			}
+		}
+		my_keywords;
 
-     template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
-     struct dbase_grammar : public qi::grammar<Iterator, Skipper>
-     {
-         qi::rule<Iterator, Skipper> start, run_app;
-         dbase_grammar()  : dbase_grammar::base_type(start)
-         {
-             std::stringstream ident_buffer;
+		dbase_keyword() : dbase_keyword::base_type(start)
+		{
+			using qi::_1;
+        	using ascii::char_;
+        	using phoenix::val;
 
-             using boost::spirit::ascii::no_case;
+        	start %=
+				*( keyword  [cout << val("Keyword as a number: ") << _1 << endl]
+                 | invalid  [cout << val("Invalid keyword: ")     << _1 << endl]
+                 )
+				 ;
 
-             using qi::lit;
-             using qi::char_;
-             using qi::lexeme;
+			keyword = my_keywords >> !(char_("a-zA-Z0-9_"));
+			invalid = +ascii::graph;
+		}
 
-             using qi::on_error;
-             using qi::fail;
+		qi::rule<Iterator, Skipper> start;
+		qi::rule<Iterator, int()> keyword;
+		qi::rule<Iterator, std::string()> invalid;
+	};
 
-             start = * symsbols;
+	template <typename Iterator, typename KeyID = dbase_keyword<Iterator>, typename Skipper = dbase_skipper<Iterator>>
+	struct dbase_grammar : public qi::grammar<Iterator, Skipper>
+	{
+        qi::rule<Iterator, Skipper> start;
+        dbase_grammar()  : dbase_grammar::base_type(start)
+        {
+            std::stringstream ident_buffer;
+
+            using boost::spirit::ascii::no_case;
+
+            using qi::lit;
+            using qi::char_;
+            using qi::lexeme;
+
+            using qi::on_error;
+            using qi::fail;
+
+            start = * symsbols;
+
+			quoted_string = 
+               omit    [ char_("'\"") [_a =_1] ]             
+            >> no_skip [ *(char_ - char_(_a))  ]
+            >> lit(_a)
+			;
+			any_string = quoted_string | +symbol_alpha;
 
              expression    = equality_expr.alias();
              equality_expr =
@@ -297,10 +349,10 @@ namespace client
 
              primary_expr =
                  double_                             [op(op_double , _1)]
-                 |   variable                        [op(op_add_var, _1)]
+                 |   variable                        [printf("variable addedddd....\n"), op(op_add_var, _1)]
                  |   lit("true")                     [op(op_true)]
                  |   lit("false")                    [op(op_false)]
-                 |   ( '(' > expression > ')' )
+                 |   ('(' > expression > ')')
                  ;
 
 
@@ -320,7 +372,7 @@ namespace client
                  ;
 
              factor =
-                 +double_                        [ op(op_add) ]
+                  double_ | int_ | variable                 [ op(op_add) ]
                  |  '('   >> symbol_expr         [ op(op_add) ] >> ')'
                  |   ('-' >> factor              [ op(op_neg) ] )
                  |   ('+' >> factor              [ op(op_add) ] )
@@ -334,66 +386,153 @@ namespace client
                 ;
 
 
-             symbol_def_expr %=
-                (symbol_alpha >> qi::lit('=') >> symbol_expr)
+			symbol_arguments %=
+				(char_('(') >> *(symbol_alpha >> *(char_(',') > symbol_alpha)) > char_(')'))
+				;
+
+			symbol_def_expr %=
+				symbol_alpha > '=' > symbol_expr 
+
+/*
+			 	 (symbol_alpha > char_('=') > symbol_new   > symbol_alpha > symbol_arguments) |
+				 (symbol_alpha > char_('=') > symbol_expr) |
+				 (symbol_alpha > char_('.') > symbol_alpha >> *(lit('.')  > symbol_alpha) > lit('=') > symbol_expr) |
+				 (symbol_alpha > char_('.') > symbol_alpha >> *(lit('.')  > symbol_alpha) > lit('(') > lit(')')) 
+
+*/
+
                 ;
 
              symsbols %=
-                   symbol_def_parameter  |
-                   symbol_def_local |
-                   symbol_def_if |
-                   symbol_def_class |
-                   symbol_def_expr
-                  ;
+				(symbol_def_parameter 	) |
+                (symbol_def_local 		) |
+                (symbol_def_if			) |
+                (symbol_def_class		) |
+                (symbol_def_expr		) |
+				(symbol_def_procedure	) |
+				(symbol_def_function 	) |
+				(symbol_def_return		)
+				;
 
-             symbol_class     = lexeme[no_case["class"]];
-             symbol_of        = lexeme[no_case["of"]];
-             symbol_endclass  = lexeme[no_case["endclass"]];
-             symbol_parameter = lexeme[no_case["parameter"]];
-             symbol_local     = lexeme[no_case["local"]];
              symbol_if        = lexeme[no_case["if"]];
+             symbol_of        = lexeme[no_case["of"]];
+			 symbol_new       = lexeme[no_case["new"]];
              symbol_else      = lexeme[no_case["else"]];
+             symbol_class     = lexeme[no_case["class"]];
              symbol_endif     = lexeme[no_case["endif"]];
+             symbol_local     = lexeme[no_case["local"]];
+			 symbol_return    = lexeme[no_case["return"]];
+             symbol_endclass  = lexeme[no_case["endclass"]];
+			 symbol_function  = lexeme[no_case["function"]];
+             symbol_parameter = lexeme[no_case["parameter"]];
+			 symbol_procedure = lexeme[no_case["procedure"]];
 
-             symbol_def_parameter %=
-                  (symbol_parameter >> (symbol_alpha % ','))
-                  ;
+			skipp_keywords =
+				(	symbol_if |
+					symbol_of |
+					symbol_new |
+					symbol_else |
+					symbol_class |
+					symbol_endif |
+					symbol_local |
+					symbol_return |
+					symbol_endclass |
+					symbol_function |
+					symbol_parameter |
+					symbol_procedure
+				)
+				;
 
-             symbol_def_local %=
-                  (symbol_local >> (symbol_alpha % ','))
-                  ;
+			symbol_def_parameter %=
+				((symbol_parameter > symbol_alpha) >> *(',' > symbol_alpha)) |
+				((symbol_parameter > symbol_alpha)  > !(',' > eoi))
+				;
+
+			symbol_def_local %=
+				((symbol_local > symbol_alpha) >> *(',' > symbol_alpha)) |
+				((symbol_local > symbol_alpha)  > !(',' > eoi))
+				;
 
              symbol_def_class %= symbol_def_class_inner;
              symbol_def_class_inner %=
-                    symbol_class                    
-                 >  symbol_alpha
-                 >  symbol_of
-                 >  symbol_alpha >> *(
-                    symbol_def_stmts ) > symbol_endclass;
+                     symbol_class
+                >    symbol_alpha
+                >    symbol_of
+                >    symbol_alpha
+				>> *(
+						(symbol_alpha > '=' > int_ ) |
+						(symbol_def_class)		|
+						(symbol_def_if) 		
+					)
+				>    symbol_endclass
+				;
 
-             symbol_def_if %= symbol_def_if_inner;
-             symbol_def_if_inner %=
-                    symbol_if > '(' > expression > ')' >>
-                 * (symbol_def_stmts | symbol_else)
-                 >  symbol_endif;
+			symbol_def_if %= symbol_def_if_inner;
+			symbol_def_if_inner %=
+			symbol_if > ('(' > int_ > ')')
+			>> *(
+				(symbol_alpha -(skipp_keywords) > '=' > int_ ) |
+				(symbol_def_class) |
+				(symbol_def_if)
+				)
+			>> *(
+				symbol_else
+				>> *(
+					(symbol_alpha -(skipp_keywords) > '=' > int_ ) |
+					(symbol_def_class) |
+					(symbol_def_if)
+					)
+				)
+			>	lit("endif")
+			;
 
+			symbol_def_procedure %=
+				symbol_procedure
+				>  symbol_alpha  >>
+				* (symbol_proc_stmts)
+				>  symbol_return
+				;
+
+			 symbol_def_function %=
+					   symbol_function
+					>  symbol_alpha  >>
+					* (symbol_proc_stmts)
+					>  symbol_return
+					> (symbol_alpha | double_ | int_ | +(quoted_string >>
+					* (lit('+')
+					>  quoted_string )))
+					;
+
+			 symbol_proc_stmts %=
+					(symbol_def_expr) |
+					(symbol_def_if)
+					;
+
+			 symbol_def_return %=
+					symbol_return
+					;
 
              symbol_def_stmts %=
-                  (symbol_def_expr ) |
-                  (symbol_def_class) |
-                  (symbol_def_if   ) 
-                  ;
+				(symbol_def_parameter 	) |
+                (symbol_def_local 		) |
+                (symbol_def_if			) |
+                (symbol_def_class		) |
+                (symbol_def_expr		) |
+                (symbol_def_procedure	) |
+                (symbol_def_function	) |
+                (symbol_def_return		)
+                ;
 
              symbol_space =
                  +(qi::char_(" \t\n\r") | eol | eoi)
                  ;
 
-             symbol_alpha %=
-                  qi::char_("a-zA-Z_") >>
-                 *qi::char_("a-zA-Z0-9_")
-                  [
-                     _val = _1
-                  ]
+			symbol_alpha %=
+				( qi::char_("a-zA-Z_") >>
+                *(qi::char_("a-zA-Z0-9_"))
+                 [
+                    _val = _1
+                 ])
                  ;
 
              symbol_digit =
@@ -436,7 +575,7 @@ namespace client
          qi::rule<Iterator, Skipper>
                  equality_expr, relational_expr
                , logical_expr, additive_expr, multiplicative_expr
-               , unary_expr, primary_expr, variable,  symbol_expr
+               , unary_expr, primary_expr, variable, symbol_expr
                ;
 
          boost::phoenix::function<compile_op> op;
@@ -446,7 +585,7 @@ namespace client
          symbol_ident;
 
          qi::rule<Iterator, Skipper>
-         symsbols,
+         symsbols, skipp_keywords,
          symbol_local,
          symbol_if,
          symbol_else,
@@ -456,11 +595,13 @@ namespace client
          symbol_class,
          symbol_endclass,
          symbol_of,
-         symbol_parameter,
-
+		 symbol_new,
+         symbol_parameter, symbol_def_string, symbol_arguments,
+		 symbol_procedure, symbol_function, symbol_proc_stmts, symbol_return,
 
          symbol_def_expr,
          symbol_def_parameter,
+		 symbol_def_procedure, symbol_def_function, symbol_def_return,
          symbol_def_if,
          symbol_def_if_inner,
          symbol_def_stmts,
@@ -470,46 +611,48 @@ namespace client
          symbol_def_class;
 
          qi::rule<Iterator, Skipper> expression, term, factor;
+
+         qi::rule<Iterator, std::string(), Skipper, qi::locals<char> > quoted_string, any_string;
      };
 }
 
 bool my_parser(std::string const str)
 {
-     typedef std::string::const_iterator iterator_t;
+    typedef std::string::const_iterator iterator_t;
 
-     typedef client::dbase_grammar <iterator_t> grammar;
-     typedef client::dbase_skipper <iterator_t> skipper;
+    typedef client::dbase_grammar <iterator_t> grammar;
+    typedef client::dbase_skipper <iterator_t> skipper;
 
-     grammar pg;
-     skipper skp;
+    grammar pg;
+    skipper skp;
 
-     iterator_t iter = str.begin();
-     iterator_t end  = str.end();
+    iterator_t iter = str.begin();
+    iterator_t end  = str.end();
 
-     bool r = phrase_parse(iter, end, pg, skp);
-     if (r == true) {
-         #ifdef USE_QT
-         QMessageBox::information(0,"Parser", "Parsing SUCCESS.");
-         #else
-         std::cout << "SUCCESS" << std::endl;
-         #endif
-         return true;
-     }
+    bool r = phrase_parse(iter, end, pg, skp);
+    if (r == true) {
+        #ifdef USE_QT
+        QMessageBox::information(0,"Parser", "Parsing SUCCESS.");
+        #else
+        std::cout << "SUCCESS" << std::endl;
+        #endif
+        return true;
+    }
 
-     if (iter != end) {
-         std::stringstream ss;
-         ss << "Parsing ERROR" << std::endl
-            << "Remaining: '"
-            << std::string(iter, end)
-            << std::endl;
+    if (iter != end) {
+        std::stringstream ss;
+        ss << "Parsing ERROR" << std::endl
+           << "Remaining: '"
+           << std::string(iter, end)
+           << std::endl;
 
-         #ifdef USE_QT
-         QMessageBox::information(0,"Parser", ss.str().c_str());
-         #else
-         std::cout << "ERROR" << std::endl;
-         #endif
-         return false;
-     }
+        #ifdef USE_QT
+        QMessageBox::information(0,"Parser", ss.str().c_str());
+        #else
+        std::cout << "ERROR" << std::endl;
+        #endif
+        return false;
+	}
     return false;
 }
 
