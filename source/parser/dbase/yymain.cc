@@ -326,34 +326,55 @@ namespace client
 			qualified_id %= symbol_alpha >> *('.' > symbol_alpha);
 			variable     %= qualified_id;
 
-			symbol_expr %=
+			symbol_expr =
 			(
 				(
 					eoi > eps[my_error("Syntaxer !!Error!!!")]
 				)
 				|
 				(
-					symbol_new > variable > '('
-					>> *(symbol_expr)
-					> ')'
+					lit("(") >> *symbol_expr > lit(")")
+					>> *(
+						(lit("+") | lit("-") | lit("*") | lit("/"))
+						> symbol_expr
+					)
 				)
 				|
-				((variable | int_ | double_)
-				>> *(
+				(
+					(
 						(
-							lit('(') >> eoi
-							> eps[ my_error("SYntax Error!!") ]
+							symbol_new	> variable
+							>> *(
+								lit("(") > *symbol_expr > lit(")")
+								>> *(
+									(
+										lit("+") | lit("-") |
+										lit("*") | lit("/")
+									)
+									>	symbol_expr
+								)
+							)
 						)
 						|
 						(
-							lit("=") > symbol_expr
-						)
-						|
-						(
-							(lit("+") | lit("-") | lit("*") | lit("/"))
-							> symbol_expr
+							variable
+							>> *(
+								lit("(") > *symbol_expr > lit(")")
+							)
+							>> *(
+								(lit("+") | lit("-") | lit("*") | lit("/"))
+								> symbol_expr
+							)
 						)
 					)
+				)
+			)
+			|
+			(
+				(int_ | double_)
+				>> *(
+					(lit("+") | lit("-") | lit("*") | lit("/"))
+					> symbol_expr
 				)
 			)
 			;
@@ -424,14 +445,14 @@ namespace client
 			symbol_def_if %=
 			(
 				((symbol_if > expression)
-				>>	 (
-					   *(symbol_def_if)
-					 | *(symbol_def_expr)
+				>>	*(
+					   (symbol_def_if)
+					 | (symbol_def_expr)
 					 )
 				>>	*(   (symbol_else)
-					>>	 (
-						   *(symbol_def_if)
-						 | *(symbol_def_expr)
+					>>	*(
+						   (symbol_def_if)
+						 | (symbol_def_expr)
 						 )
 					)
 				)
@@ -441,9 +462,8 @@ namespace client
  
 			symbol_def_expr %=
 			(
-				(variable | int_ | double_)
-				> lit('=')
-				> symbol_expr
+					variable -(dont_handle_keywords) > lit('=')
+				>	symbol_expr
 			)
 			;
 
