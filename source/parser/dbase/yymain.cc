@@ -417,7 +417,7 @@ namespace client
 			expression =
 			(
 				(
-					lit("(") >> *(symbol_new) > (symbol_expr2expr) > lit(")")
+					lit("(") >> *(expression) > lit(")")
 				)
 				|
 				(
