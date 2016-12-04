@@ -366,7 +366,7 @@ namespace client
 							(variable
 							>> *(
 									(
-										(lit("(") >> *(expression) > lit(")"))
+										(lit("(") >> *(symbol_expr2expr) > lit(")"))
 										>> *(
 											(lit("+") | lit("-") | lit("*") | lit("/"))
 											> expression
@@ -416,14 +416,8 @@ namespace client
 
 			expression =
 			(
-				(
-					lit("(") >> *(expression) > lit(")")
-				)
-				|
-				(
-					*  symbol_new
-					> (symbol_expr2expr)
-				)
+				*   (symbol_new)
+			    >	(symbol_expr2expr)
 			)
 			;
 
