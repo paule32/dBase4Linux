@@ -6,7 +6,7 @@
 #------------------------------------------------------------------------
 TEMPLATE = app
 TARGET   = dbase
-CONFIG  += release c++14
+CONFIG  += release c++1y
 
 QT = core gui widgets help network
 
@@ -15,6 +15,8 @@ SRCDIR=$${TOPDIR}/source
 HDRDIR=$${SRCDIR}/includes
 
 GENFOLDER =$${TOPDIR}/build/
+
+TEMPLATE_DEPTH = 516
 
 UI_DIR =$${TOPDIR}/.uic
 MOC_DIR=$${TOPDIR}/.moc
@@ -39,7 +41,7 @@ QMAKE_CXXFLAGS += \
         -Wno-sign-compare \
         -Wunused-function \
         -Woverloaded-virtual -fpermissive \
-        -ftemplate-depth=400 \
+        -ftemplate-depth=$${TEMPLATE_DEPTH} \
         -frtti -fexceptions \
         -I/usr/local/include \
         -I/usr/local/include/boost \
