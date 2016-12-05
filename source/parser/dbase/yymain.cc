@@ -104,7 +104,6 @@ namespace client
              info const& what
            , Iterator err_pos, Iterator last) const
          {
-             printf("EEEEEEEEEEEEEEEEEERRRRRR\n");
              std::stringstream ss;
              ss  << "Error! Expecting "
                  << what                         // what failed?
@@ -318,7 +317,10 @@ namespace client
 			symsbols %=
 			(
 				(symbol_def_if) 		|
-				(symbol_def_expr)
+				(symbol_def_expr)		|
+				(symbol_def_class)		|
+				(symbol_def_parameter)	|
+				(symbol_def_local)
 			)
 			;
 
@@ -330,6 +332,10 @@ namespace client
 			(
 				(
 					eoi > eps[my_error("Syntaxer !!Error!!!")]
+				)
+				|
+				(
+					(symbol_true | symbol_false)
 				)
 				|
 				(
@@ -383,6 +389,12 @@ namespace client
 			(
 				(
 					(
+						(
+							(symbol_true | symbol_false)
+							> *(lit("+") | lit("-") | lit("*") | lit("/"))
+							> expression
+						)
+						|
 						(
 							lit("(") > symbol_expr2expr > lit(")")
 							>> *(
@@ -460,16 +472,10 @@ namespace client
 			symbol_def_if %=
 			(
 				((symbol_if > expression)
-				>>	*(
-					   (symbol_def_if)
-					 | (symbol_def_expr)
+				>	*(		symsbols)
+				>	*(	(symbol_else)
+				>	*	(	symsbols)
 					 )
-				>>	*(   (symbol_else)
-					>>	*(
-						   (symbol_def_if)
-						 | (symbol_def_expr)
-						 )
-					)
 				)
 				>	symbol_endif
 			)
@@ -477,8 +483,23 @@ namespace client
  
 			symbol_def_expr %=
 			(
-					variable -(dont_handle_keywords) > lit('=')
-				>	symbol_expr
+				(variable - (dont_handle_keywords))
+				>> *(
+					(	(lit('=') - (dont_handle_keywords))
+						> symbol_expr
+					)	|
+					(	lit("(") >
+						lit(")")
+					)
+				)
+			)
+			;
+
+			symbol_def_class =
+			(
+				symbol_class	> symbol_alpha >
+				symbol_of		> symbol_alpha > *(symsbols) >
+				symbol_endclass
 			)
 			;
 
@@ -487,9 +508,15 @@ namespace client
 				*(qi::char_("a-zA-Z0-9_"))
 				;
 
+			symbol_def_parameter = (symbol_parameter > variable > *(',' > variable)) ;
+			symbol_def_local	 = (symbol_local	 > variable > *(',' > variable)) ;
+
+
 			dont_handle_keywords =
 			(	symbol_if
 			|	symbol_endif
+			|	symbol_false
+			|	symbol_true
 			|	symbol_of
 			|	symbol_new
 			|	symbol_else
@@ -508,7 +535,9 @@ namespace client
 			symbol_of			.name("OF");
 			symbol_new			.name("NEW");
 			symbol_else 		.name("ELSE");
+			symbol_true 		.name("TRUE");
 			symbol_class		.name("CLASS");
+			symbol_false		.name("FALSE");
 			symbol_endclass 	.name("ENDCLASS");
 			symbol_local		.name("LOCAL");
 			symbol_return		.name("RETURN");
@@ -518,18 +547,21 @@ namespace client
 
 			conditions			.name("conditions expected");
 
-            symbol_if        = lexeme[no_case["if"]];
-            symbol_of        = lexeme[no_case["of"]];
-			symbol_new       = lexeme[no_case["new"]];
-            symbol_else      = lexeme[no_case["else"]];
-            symbol_class     = lexeme[no_case["class"]];
-            symbol_endif     = lexeme[no_case["endif"]];
-            symbol_local     = lexeme[no_case["local"]];
-			symbol_return    = lexeme[no_case["return"]];
-            symbol_endclass  = lexeme[no_case["endclass"]];
-			symbol_function  = lexeme[no_case["function"]];
-            symbol_parameter = lexeme[no_case["parameter"]];
-			symbol_procedure = lexeme[no_case["procedure"]];
+			symbol_true 	 = (lexeme[no_case["true" ]] | lexeme[no_case[".t."]]);
+			symbol_false	 = (lexeme[no_case["false"]] | lexeme[no_case[".f."]]);
+
+            symbol_if        =  lexeme[no_case["if"]];
+            symbol_of        =  lexeme[no_case["of"]];
+			symbol_new       =  lexeme[no_case["new"]];
+            symbol_else      =  lexeme[no_case["else"]];
+            symbol_class     =  lexeme[no_case["class"]];
+            symbol_endif     =  lexeme[no_case["endif"]];
+            symbol_local     =  lexeme[no_case["local"]];
+			symbol_return    =  lexeme[no_case["return"]];
+            symbol_endclass  =  lexeme[no_case["endclass"]];
+			symbol_function  =  lexeme[no_case["function"]];
+            symbol_parameter =  lexeme[no_case["parameter"]];
+			symbol_procedure =  lexeme[no_case["procedure"]];
 
 			qi::on_error<fail>( start, client::error_handler(_4, _3, _2) );
 		}
@@ -551,8 +583,8 @@ namespace client
 
          qi::rule<Iterator, Skipper>
          symsbols, dont_handle_keywords, conditions,
-         symbol_local,
-         symbol_if,
+         symbol_local, symbol_false, symbol_true,
+         symbol_if, is_function,
          symbol_else,
          symbol_endif,
          symbol_digit,
