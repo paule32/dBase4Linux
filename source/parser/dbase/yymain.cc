@@ -392,11 +392,7 @@ namespace client
 								)
 								|
 								(
-									(	lit("==") | lit("<=") |
-										lit(">=") | lit("=>") |
-										lit("=<") | lit("!=") |
-										lit("<" ) | lit(">" )
-									)
+										conditions
 									>	expression
 								)
 							)
@@ -419,11 +415,7 @@ namespace client
 									)
 									|
 									(
-										(	lit("==") | lit("<=") |
-											lit(">=") | lit("=>") |
-											lit("=<") | lit("!=") |
-											lit("<" ) | lit(">" )
-										)
+											conditions
 										>	expression
 									)
 								)
@@ -439,11 +431,7 @@ namespace client
 									)
 									|
 									(
-										(	lit("==") | lit("<=") |
-											lit(">=") | lit("=>") |
-											lit("=<") | lit("!=") |
-											lit("<" ) | lit(">" )
-										)
+											conditions
 										>	expression
 									)
 								)
@@ -451,6 +439,14 @@ namespace client
 						)
 					)
 				)
+			)
+			;
+
+			conditions =
+			(	lit("==") | lit("<=") |
+				lit(">=") | lit("=>") |
+				lit("=<") | lit("!=") |
+				lit("<" ) | lit(">" )
 			)
 			;
 
@@ -520,6 +516,8 @@ namespace client
 			symbol_procedure	.name("PROCEDURE");
 			symbol_parameter	.name("PARAMETER");
 
+			conditions			.name("conditions expected");
+
             symbol_if        = lexeme[no_case["if"]];
             symbol_of        = lexeme[no_case["of"]];
 			symbol_new       = lexeme[no_case["new"]];
@@ -552,7 +550,7 @@ namespace client
          symbol_ident;
 
          qi::rule<Iterator, Skipper>
-         symsbols, dont_handle_keywords,
+         symsbols, dont_handle_keywords, conditions,
          symbol_local,
          symbol_if,
          symbol_else,
