@@ -384,6 +384,25 @@ namespace client
 				(
 					(
 						(
+							lit("(") > symbol_expr2expr > lit(")")
+							>> *(
+								(
+									(lit("+") | lit("-") | lit("*") | lit("/"))
+									> expression
+								)
+								|
+								(
+									(	lit("==") | lit("<=") |
+										lit(">=") | lit("=>") |
+										lit("=<") | lit("!=") |
+										lit("<" ) | lit(">" )
+									)
+									>	expression
+								)
+							)
+						)
+						|
+						(
 							(variable
 							>> *(
 									(
