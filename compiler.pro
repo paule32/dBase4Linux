@@ -33,22 +33,28 @@ QMAKE_CXXFLAGS += \
 	-Wno-unused-parameter \
 	-Wno-unused-variable \
 	-Wno-unused-local-typedefs \
-        -Wno-unused-but-set-variable \
-        -Wno-write-strings \
-        -Wno-extra \
-        -Wno-reorder \
-        -Wno-multichar \
-        -Wno-sign-compare \
-        -Wunused-function \
-        -Woverloaded-virtual -fpermissive \
-        -ftemplate-depth=$${TEMPLATE_DEPTH} \
-        -frtti -fexceptions \
-        -I/usr/local/include \
-        -I/usr/local/include/boost \
-        -I$${TOPDIR}. -I$${SRCDIR} -I$${SRCDIR}/includes \
-        -D__BYTE_ORDER=__LITTLE_ENDIAN \
-        -DQT_DEPRECATED \
-        -DQT_DISABLE_DEPRECATED_BEFORE
+    -Wno-unused-but-set-variable \
+    -Wno-write-strings \
+    -Wno-extra \
+    -Wno-reorder \
+    -Wno-multichar \
+    -Wno-sign-compare \
+    -Wunused-function \
+    -Woverloaded-virtual -fpermissive \
+    -ftemplate-depth=$${TEMPLATE_DEPTH} \
+    -frtti -fexceptions \
+    -I/usr/local/include \
+    -I/usr/local/include/boost \
+    -I$${TOPDIR}. -I$${SRCDIR} -I$${SRCDIR}/includes \
+    -D__BYTE_ORDER=__LITTLE_ENDIAN \
+    -DQT_DEPRECATED \
+    -DQT_DISABLE_DEPRECATED_BEFORE
+
+dBaseHelp.target     = all
+dBaseHelp.commands   = @./source/tools/html2qch.sh
+dBaseHelp.depends    = FORCE
+
+QMAKE_EXTRA_TARGETS += dBaseHelp
 
 INCLUDEPATH += \
         /usr/local/include \
@@ -58,6 +64,7 @@ INCLUDEPATH += \
         /usr/include
 
 SOURCES += \
+		$${SRCDIR}/dbase/assistant.cc \
         $${SRCDIR}/dbase/main.cc \
         $${SRCDIR}/dbase/mainwindow.cc \
         $${SRCDIR}/dbase/editorgutter.cc \
@@ -85,6 +92,7 @@ SOURCES += \
     source/parser/dbase/type.cc
 
 HEADERS += \
+	$${HDRDIR}/assistant.h \
 	$${HDRDIR}/mainwindow.h \
 	$${HDRDIR}/editorgutter.h \
 	$${HDRDIR}/scene.h \

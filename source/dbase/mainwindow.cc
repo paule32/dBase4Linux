@@ -1,5 +1,6 @@
 #include "source/includes/mainwindow.h"
 #include "source/includes/update_dbase.h"
+#include <QStatusBar>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -40,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     show();
 
-    update = new update_dbase(dynamic_cast<QWidget*>(this));
+    update = new update_dbase(dynamic_cast<QDialog*>(this));
     update->show();
     update->exec();
 }
@@ -78,16 +79,17 @@ bool MainWindow::eventFilter(QObject *target, QEvent *event)
         switch (keyEvent->key())
         {
         case Qt::Key_F1:
-            {   delEditPanel();
+            { //  delEditPanel();
                 addHelpPanel();
                 return true;
             }
             break;
 
+
         case Qt::Key_Escape:
-            {   delHelpPanel();
-                addEditPanel();
-                return true;
+            { //  delHelpPanel();
+              //  addEditPanel();
+              //  return true;
             }
             close();
             return true;
@@ -98,76 +100,62 @@ bool MainWindow::eventFilter(QObject *target, QEvent *event)
 }
 
 void MainWindow::on_dockHelpOpen()
-{   delEditPanel();
+{ //  delEditPanel();
     addHelpPanel();
 }
 
 void MainWindow::on_dockEditOpen()
-{   delHelpPanel();
-    addEditPanel();
+{ //  delHelpPanel();
+  //  addEditPanel();
 }
 
-void MainWindow::delEditPanel() { if (helpWindow) helpWindow->show(); ui->editPage->hide(); }
-void MainWindow::addEditPanel() { if (helpWindow) helpWindow->hide(); ui->editPage->show(); }
+void MainWindow::delEditPanel() { /*if (helpWindow) helpWindow->show(); ui->editPage->hide(); */ }
+void MainWindow::addEditPanel() { /*if (helpWindow) helpWindow->hide(); ui->editPage->show(); */ }
 
-void MainWindow::delHelpPanel() { helpWindow->hide(); }
+void MainWindow::delHelpPanel() { /* helpWindow->hide();*/ }
 void MainWindow::addHelpPanel()
 {
-    helpEngine= new QHelpEngine(
-    QApplication::applicationDirPath() +
-    "/help/dBaseHelp.qhc",dynamic_cast<QMainWindow*>(w));
+	QFileInfo info(
+		QString(
+			QApplication::applicationDirPath() +
+			"/help/dBaseHelp.qhc"
+		)
+	);
 
-    bool flag= helpEngine->setupData();
-    if (!flag) {
+	if (info.exists() == false) {
+        QMessageBox::critical(this,
+        tr("Applicaton Error"),
+        tr("Helpfile not found."));
+        return;
+	}
+
+	helpEngine = new QHelpEngine(info.absoluteFilePath(),this);
+    if (helpEngine->setupData() == false) {
         delete helpEngine;
-        helpEngine = new QHelpEngine(
-        "/help/dBaseHelp.qhc",this);
-
-        if (!(flag = helpEngine->setupData())) {
-            delete helpEngine;
-            QMessageBox::critical(this,
-            tr("Applicaton Error"),
-            tr("Helpfile not found."));
-            return;
-        }
+        QMessageBox::critical(this,
+        tr("Applicaton Error"),
+        tr("Helpfile not found."));
+        return;
     }
 
-    QTabWidget * tWidget = new QTabWidget;
-    tWidget->addTab(helpEngine->contentWidget(),tr("Content"));
-    tWidget->addTab(helpEngine->indexWidget  (),tr("Index"));
+	QHelpContentModel   * contentModel	= helpEngine->contentModel	();
+    QHelpContentWidget  * contentWidget = helpEngine->contentWidget ();
+    QHelpIndexModel 	* indexModel	= helpEngine->indexModel	();
+    QHelpIndexWidget	* indexWidget	= helpEngine->indexWidget	();
 
-    tWidget->widget(0)->resize(200,height());
+    QSplitter   * m_pannel = new QSplitter(Qt::Horizontal);
+	HelpBrowser * m_phtml  = new HelpBrowser(helpEngine,this);
 
-    HelpBrowser * textViewer = new HelpBrowser(helpEngine);
-    textViewer->setSource(QUrl("qthelp://kallup.net/doc/index.html"));
+	m_phtml ->setSource(QUrl("qthelp://dbase.center/doc/index.html"));
+    m_pannel->insertWidget(0, contentWidget);
+    m_pannel->insertWidget(1, m_phtml      );
+	m_pannel->show();
 
-    connect(helpEngine->contentWidget(),
-            SIGNAL(linkActivated(QUrl)),
-            textViewer,
-            SLOT(setSource(QUrl))
-            );
+	connect(contentWidget,
+	        SIGNAL(linkActivated(const QUrl &)),
+	        m_phtml, SLOT(setSource(const QUrl &)));
 
-    connect(helpEngine->indexWidget(),
-            SIGNAL(linkActivated(QUrl, QString)),
-            textViewer,
-            SLOT(setSource(QUrl))
-            );
-
-    hsplit = new QSplitter(Qt::Horizontal);
-    hsplit->insertWidget(0,tWidget);
-    hsplit->insertWidget(1,textViewer);
-
-    if (!helpWindow) {
-        helpWindow          = new QWidget(this);
-        QVBoxLayout *layout = new QVBoxLayout(helpWindow);
-
-        layout->setSizeConstraint(QLayout::SetMinimumSize);
-        layout->addWidget(hsplit);
-
-        helpWindow->setLayout(layout);
-        helpWindow->move(0,ui->menubar->fontMetrics().height()+2);
-        helpWindow->resize(width(),height());
-    }   helpWindow->show();
+	qDebug() << "Help ok";
 }
 
 void MainWindow::on_AboutQt() {
