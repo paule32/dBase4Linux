@@ -1,5 +1,8 @@
 #include "source/includes/mainwindow.h"
 #include "source/includes/update_dbase.h"
+#include "source/includes/helplistview.h"
+
+#include <QStandardItemModel>
 #include <QStatusBar>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -143,10 +146,15 @@ void MainWindow::addHelpPanel()
     QHelpIndexModel 	* indexModel	= helpEngine->indexModel	();
     QHelpIndexWidget	* indexWidget	= helpEngine->indexWidget	();
 
+	if (indexModel == nullptr)
+	QMessageBox::critical(0,"Error", "indexModel null");
+
     QSplitter   * m_pannel = new QSplitter(Qt::Horizontal);
 	HelpBrowser * m_phtml  = new HelpBrowser(helpEngine,this);
 
-	m_phtml ->setSource(QUrl("qthelp://dbase.center/doc/index.html"));
+	m_phtml->setSource(QUrl("qthelp://dbase.center"
+	"/doc/index.html"));
+
     m_pannel->insertWidget(0, contentWidget);
     m_pannel->insertWidget(1, m_phtml      );
 	m_pannel->show();

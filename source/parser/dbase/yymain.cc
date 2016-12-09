@@ -1,4 +1,4 @@
-//#define BOOST_SPIRIT_DEBUG
+#define BOOST_SPIRIT_DEBUG
 #define BOOST_SPIRIT_ACTIONS_ALLOW_ATTR_COMPAT
 
 #include <boost/config/warning_disable.hpp>
@@ -131,7 +131,7 @@ namespace client
              using qi::on_error;
              using qi::fail;
 
-             my_skip =  (char_("[ \t\n\r]"))                            |
+             my_skip =  (char_(" \t\n\r"))                        |
              ("**" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
              ("&&" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
              ("//" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
@@ -241,6 +241,11 @@ namespace client
              code.push_back(my_pspush);
          }
 
+		void operator()(const std::string &s) const
+		{
+			QMessageBox::information(0,"sssss",QString(s.c_str()));
+		}
+
         void operator()(byte_code a, byte_code b, byte_code c)
         {
 			std::cout << "ifffererer" << std::endl;
@@ -252,52 +257,6 @@ namespace client
 
 
 	template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
-	struct dbase_keyword : public qi::grammar<Iterator, Skipper>
-	{
-											// keyword - help-id
-		struct keywordSymbols : qi::symbols<std::string, unsigned int>
-		{
-			keywordSymbols()
-			{
-				add
-				(std::string("if"), 		1)
-				(std::string("of"), 		2)
-				(std::string("else"),		3)
-				(std::string("class"),		4)
-				(std::string("endif"),		5)
-				(std::string("local"),		6)
-				(std::string("return"), 	7)
-				(std::string("endclass"),	8)
-				(std::string("function"),	9)
-				(std::string("parameter"),	10)
-				(std::string("procedure"),	11)
-				;
-			}
-		}
-		my_keywords;
-
-		dbase_keyword() : dbase_keyword::base_type(start)
-		{
-			using qi::_1;
-        	using ascii::char_;
-        	using phoenix::val;
-
-        	start %=
-				*( keyword  [cout << val("Keyword as a number: ") << _1 << endl]
-                 | invalid  [cout << val("Invalid keyword: ")     << _1 << endl]
-                 )
-				 ;
-
-			keyword = my_keywords >> !(char_("a-zA-Z0-9_"));
-			invalid = +ascii::graph;
-		}
-
-		qi::rule<Iterator, Skipper> start;
-		qi::rule<Iterator, int()> keyword;
-		qi::rule<Iterator, std::string()> invalid;
-	};
-
-	template <typename Iterator, typename KeyID = dbase_keyword<Iterator>, typename Skipper = dbase_skipper<Iterator>>
 	struct dbase_grammar : public qi::grammar<Iterator, Skipper>
 	{
         qi::rule<Iterator, Skipper> start;
@@ -312,7 +271,7 @@ namespace client
             using qi::on_error;
             using qi::fail;
 
-            start %= * symsbols;
+            start %= *symsbols;
 
 			symsbols %=
 			(
@@ -325,13 +284,17 @@ namespace client
 			;
 
 
-			qualified_id %= symbol_alpha >> *('.' > symbol_alpha);
-			variable     %= qualified_id;
+			qualified_id = symbol_alpha >> *('.' > symbol_alpha);
+			variable      = qualified_id;
 
-			symbol_expr =
+			symbol_expr %=
 			(
 				(
 					eoi > eps[my_error("Syntaxer !!Error!!!")]
+				)
+				|
+				(
+					lit("[") >> (eol | eoi) > eps[my_error("funkel bunkel")]
 				)
 				|
 				(
@@ -339,65 +302,106 @@ namespace client
 				)
 				|
 				(
-					lit("(") >> *symbol_expr > lit(")")
+					symbol_string
 					>> *(
-						(lit("+") | lit("-") | lit("*") | lit("/"))
+						(lit("+") | lit("-"))
 						> symbol_expr
 					)
 				)
 				|
 				(
-					(
+					lit("(") >> *symbol_expr > lit(")")
+					>> *(
+							(lit("+") | lit("-") | lit("*") | lit("/"))
+							> symbol_expr
+					)
+				)
+				|
+				(
+					variable
+					>> *(
 						(
-							symbol_new	> variable
+							lit("(") >> *symbol_expr > lit(")")
+						)
+						|
+						(
+							symbol_string
 							>> *(
-								lit("(") > *symbol_expr > lit(")")
-								>> *(
-									(
-										lit("+") | lit("-") |
-										lit("*") | lit("/")
-									)
-									>	symbol_expr
-								)
+								(lit("+") | lit("-"))
+								> symbol_expr
 							)
 						)
 						|
 						(
-							variable
-							>> *(
-								lit("(") > *symbol_expr > lit(")")
-							)
-							>> *(
-								(lit("+") | lit("-") | lit("*") | lit("/"))
-								> symbol_expr
-							)
+							(lit("+") | lit("-") | lit("*") | lit("/"))
+							> symbol_expr
 						)
 					)
 				)
-			)
-			|
-			(
-				(int_ | double_)
-				>> *(
-					(lit("+") | lit("-") | lit("*") | lit("/"))
-					> symbol_expr
+				|
+				(
+					symbol_new > variable
+					>> *(
+						(
+							lit("(") >> *symbol_expr > lit(")")
+						)
+						|
+						(
+							(
+								lit("+") | lit("-") |
+								lit("*") | lit("/")
+							)
+							>	symbol_expr
+						)
+					)
+				)
+				|
+				(
+					(int_ | double_)
+					>> *(
+						(lit("+") | lit("-") | lit("*") | lit("/"))
+						> symbol_expr
+					)
 				)
 			)
 			;
 
-			symbol_expr2expr =
+			symbol_expr2expr %=
 			(
 				(
 					(
 						(
 							(symbol_true | symbol_false)
-							> *(lit("+") | lit("-") | lit("*") | lit("/"))
-							> expression
+							>> *(lit("+") | lit("-") | lit("*") | lit("/"))
+							>   expression
 						)
 						|
 						(
-							lit("(") > symbol_expr2expr > lit(")")
+							lit("(") >> symbol_expr2expr > lit(")")
 							>> *(
+								(
+								   (lit("+") | lit("-") | lit("*") | lit("/"))
+									> expression
+								)
+								|
+								(
+										conditions
+									>	expression
+								)
+							)
+						)
+						|
+						(
+							(variable)
+							>> (
+							   (
+									(lit("(") >> *(symbol_expr2expr) > lit(")"))
+									>> (
+									    (lit("+") | lit("-") | lit("*") | lit("/"))
+										> expression
+									)
+								)
+								|
 								(
 									(lit("+") | lit("-") | lit("*") | lit("/"))
 									> expression
@@ -411,41 +415,16 @@ namespace client
 						)
 						|
 						(
-							(variable
+							(int_ | double_)
 							>> *(
-									(
-										(lit("(") >> *(symbol_expr2expr) > lit(")"))
-										>> *(
-											(lit("+") | lit("-") | lit("*") | lit("/"))
-											> expression
-										)
-									)
-									|
-									(
-										(lit("+") | lit("-") | lit("*") | lit("/"))
-										> expression
-									)
-									|
-									(
-											conditions
-										>	expression
-									)
+								(
+									(lit("+") | lit("-") | lit("*") | lit("/"))
+									> expression
 								)
-							)
-						)
-						|
-						(
-							(int_ | double_
-							>> *(
-									(
-										(lit("+") | lit("-") | lit("*") | lit("/"))
-										> expression
-									)
-									|
-									(
-											conditions
-										>	expression
-									)
+								|
+								(
+										conditions
+									>	expression
 								)
 							)
 						)
@@ -454,7 +433,7 @@ namespace client
 			)
 			;
 
-			conditions =
+			conditions %=
 			(	lit("==") | lit("<=") |
 				lit(">=") | lit("=>") |
 				lit("=<") | lit("!=") |
@@ -462,43 +441,86 @@ namespace client
 			)
 			;
 
-			expression =
+			expression %=
 			(
-				*   (symbol_new)
-			    >	(symbol_expr2expr)
+				* (symbol_new)
+			    > (symbol_expr2expr)
 			)
 			;
 
 			symbol_def_if %=
 			(
-				((symbol_if > expression)
-				>	*(		symsbols)
-				>	*(	(symbol_else)
-				>	*	(	symsbols)
-					 )
+				(
+					(symbol_if > expression)
+					>> 	*(		symsbols)
+					>> 	*(	(symbol_else)
+			    	>> 	*(		symsbols) )
+					>	symbol_endif
 				)
-				>	symbol_endif
 			)
 			;
- 
-			symbol_def_expr %=
+
+            any_stringSB =
+			(
+				(
+					lexeme[
+						(
+							lit("'")
+							>> *(
+								((lit("\\") >> char_) | (char_ - lit("'") ))
+							)
+							> lit("'")
+						)
+					]
+				)
+				|
+				(
+					lexeme[
+						(
+							char_("\"")
+							>> *(
+								((lit('\\') >> char_) | (char_ - lit("\"") ))
+							)
+							> lit("\"")
+						)
+					]
+				)
+				|
+				(
+					lexeme[
+						(
+							char_("[")
+							>> *(
+								(
+									( char_ - char_("]")   )
+									|
+									( char_("\\") >> char_ )
+								)
+							)
+							> char_("]")
+						)
+					]
+				)
+				|
+				(
+					char_("[") > eps[my_error("Array Error")]
+				)
+			)
+			;
+
+			symbol_string   = (any_stringSB);
+			symbol_def_expr =
 			(
 				(variable - (dont_handle_keywords))
-				>> *(
-					(	(lit('=') - (dont_handle_keywords))
-						> symbol_expr
-					)	|
-					(	lit("(") >
-						lit(")")
-					)
-				)
+				>	lit("=")
+				>	(symbol_expr)
 			)
 			;
 
 			symbol_def_class =
 			(
 				symbol_class	> symbol_alpha >
-				symbol_of		> symbol_alpha > *(symsbols) >
+				symbol_of		> symbol_alpha >> *(symsbols) >
 				symbol_endclass
 			)
 			;
@@ -508,8 +530,8 @@ namespace client
 				*(qi::char_("a-zA-Z0-9_"))
 				;
 
-			symbol_def_parameter = (symbol_parameter > variable > *(',' > variable)) ;
-			symbol_def_local	 = (symbol_local	 > variable > *(',' > variable)) ;
+			symbol_def_parameter = (symbol_parameter > variable) >> *(',' > variable) ;
+			symbol_def_local	 = (symbol_local	 > variable) >> *(',' > variable) ;
 
 
 			dont_handle_keywords =
@@ -529,6 +551,9 @@ namespace client
 			|	symbol_parameter
 			)
 			;
+
+			any_SB.name("#string req#");
+			any_stringSB.name(" bracket STRING bracket");
 
 			symbol_if			.name("IF");
 			symbol_endif		.name("ENDIF");
@@ -566,9 +591,13 @@ namespace client
 			qi::on_error<fail>( start, client::error_handler(_4, _3, _2) );
 		}
 
+		qi::rule<Iterator, std::string()> any_SB;
+		qi::rule<Iterator, std::string()> any_stringSB;
+
         qi::rule<Iterator, Skipper> assignment_rhs;
         qi::rule<Iterator, Skipper>
 			variable,
+			symbol_string,
 			symbol_expr,
 			symbol_expr2expr,
 			qualified_id
@@ -608,8 +637,7 @@ namespace client
          symbol_def_class;
 
          qi::rule<Iterator, Skipper> expression, term, factor;
-
-         qi::rule<Iterator, std::string(), Skipper, qi::locals<char> > quoted_string, any_string;
+         qi::rule<Iterator, Skipper> quoted_string, any_string;
      };
 }
 
@@ -666,3 +694,4 @@ bool parseText(std::string const s, int m)
 	}
     return r;
 }
+

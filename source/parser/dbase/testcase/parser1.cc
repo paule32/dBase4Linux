@@ -20,77 +20,18 @@ struct my_test : public qi::grammar<Iterator, Skipper>
 {
 	my_test() : my_test::base_type(vs, "test")
 	{
-		vs.name("vs");
-		symbol_endif.name("ENDIF");
-
-		expression =
-		int_ > lit("==") > int_
-		;
-
 		vs =
 		(
-			(symbol_if > expression)
-			>>	*(
-				(symsbols)
-				)
-			>>	*(
-				(symbol_else)
-				>>	*(
-					(symsbols)
-					)
-				)
-			>	symbol_endif
+				lit("[")
+			>>	*(char_ - char_("]"))
+			>>  *(space)
+			>>	*(char_ - char_("]"))
+			>	lit("]")
 		)
 		;
-
-		symsbols =
-		(
-			int_ | vs
-		)
-		;
-
-        symbol_if    = lexeme[no_case["if"]];
-        symbol_else  = lexeme[no_case["else"]];
-        symbol_endif = lexeme[no_case["endif"]];
 	}
-
-	rule<Iterator,Skipper>
-		vs,
-		symbol_if,
-		symbol_else,
-		symbol_endif, symsbols, expression
-		;
-};
-
-
-#ifdef _ASDASASDASDASD__
-template <typename Iterator, typename Skipper>
-struct my_test : public qi::grammar<Iterator, Skipper>
-{
-	my_test() : my_test::base_type(vs, "test")
-	{
-		vs.name("vs");
-		vs =
-		lit("if") > ('(' > int_ > ')')
-		>> *(
-		    (*(char_("a-zA-Z0-9")) - "if" - "endif" > '=' > int_ ) |
-			(vs)
-			)
-		>> *(
-			lit("else")
-			>> *(
-			    (*(char_("a-zA-Z0-9")) - "if" - "endif" > '=' > int_ ) |
-				(vs)
-				)
-			)
-		>	lit("endif")
-		;
-	}
-
 	rule<Iterator,Skipper> vs;
 };
-#endif
-
 }
 
 int main()
@@ -98,8 +39,8 @@ int main()
 	typedef std::string::iterator iterator_t;
 
 	try {
-		std::string source = "if 1212 == 1212 else if 1212 == 1221 endif";
-		typedef client::my_test      <iterator_t, decltype(qi::space)> grammar;
+		std::string source = "[ ssssss ssss aaa ] ";
+		typedef client::my_test <iterator_t, decltype(qi::space)> grammar;
 
 		grammar pg;
 
@@ -113,7 +54,7 @@ int main()
 			<< std::endl;
 			return 0;
 		}
-		std::cout << "eeerrror" << std::endl;
+		std::cout << "error" << std::endl;
 	}
 	catch(expectation_failure<iterator_t>& e)
 	{

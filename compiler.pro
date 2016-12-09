@@ -93,6 +93,7 @@ SOURCES += \
 
 HEADERS += \
 	$${HDRDIR}/assistant.h \
+	$${HDRDIR}/helplistview.h \
 	$${HDRDIR}/mainwindow.h \
 	$${HDRDIR}/editorgutter.h \
 	$${HDRDIR}/scene.h \

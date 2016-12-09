@@ -10,8 +10,8 @@
 		<filterAttribute>dBase</filterAttribute>
 		<filterAttribute>1.0</filterAttribute>
 		<toc>
-				<section title="Help - Welcome" ref="index.html">
-				<section title="Chapter 1" ref="index.html#"/>
+			<section title="Help - Welcome" ref="index.html">
+				<section title="Chapter 1" ref="chapter1.htm#"/>
 				<section title="Chapter 2" ref="index.html#"/>
 			</section>
        	</toc>
@@ -20,8 +20,10 @@
        	</keywords>
 		<files>
 			<file>index.html</file>
-			<file>test.html</file>
-			<file>img/logo.png</file>
+			<file>*.htm</file>
+			<file>img/*.png</file>
+			<file>css/*.css</file>
+			<file>js/*.js</file>
 		</files>
 	</filterSection>
 </QtHelpProject>
