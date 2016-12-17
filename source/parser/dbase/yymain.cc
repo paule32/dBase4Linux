@@ -374,6 +374,10 @@ namespace client
 
 				code->append(*(my_pspush));
 			}
+
+			else if (n1 == "op7") {
+				QMessageBox::information(0,"informPAAA",n2.c_str() );
+			}
 		}
 		void operator()(
 			const std::string ops,
@@ -464,8 +468,12 @@ namespace client
 			)
 			;
 
-			qualified_id = symbol_alpha >> *('.' > symbol_alpha);
-			variable     = qualified_id [_val = qi::_1];
+			qualified_id = (symbol_alpha >> *('.' > symbol_alpha) [_val = qi::_1 ]);
+			variable     = (qualified_id
+			[
+				_val = qi::_1,
+				op("op7",phoenix::construct<std::string>(qi::_1))
+			]);
 
 
 			symbol_expr %=
@@ -748,19 +756,19 @@ namespace client
 
         qi::rule<Iterator, Skipper> assignment_rhs;
         qi::rule<Iterator, Skipper>
-			variable,
 			symbol_string,
 			symbol_expr,
-			symbol_expr2expr,
-			qualified_id
+			symbol_expr2expr
         ;
 
-         boost::phoenix::function<compile_op> op;
-         boost::phoenix::function<error     > my_error;
+        boost::phoenix::function<compile_op> op;
+        boost::phoenix::function<error     > my_error;
 
-         qi::rule<Iterator, std::string()>
-         symbol_alpha,
-         symbol_ident;
+        qi::rule<Iterator, std::string()>
+		variable,
+		qualified_id,
+        symbol_alpha,
+        symbol_ident;
 
 		qi::rule<Iterator, bool> symbol_false, symbol_true;
 
