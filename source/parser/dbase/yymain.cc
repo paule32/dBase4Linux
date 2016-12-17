@@ -34,14 +34,19 @@ using namespace boost::spirit::qi;
 
 namespace client
 {
-     namespace fusion = boost::fusion;
-     namespace phoenix = boost::phoenix;
+    namespace fusion = boost::fusion;
+    namespace phoenix = boost::phoenix;
 
-     namespace qi = boost::spirit::qi;
-     namespace ascii = boost::spirit::ascii;
+    namespace qi = boost::spirit::qi;
+    namespace ascii = boost::spirit::ascii;
 
-     enum byte_code
-     {
+	std::string st_name1;
+	std::string st_name2;
+
+	bool my_not_error = false;
+
+    enum byte_code
+    {
          op_neg,         //  negate the top stack entry
          op_add,         //  add top two stack entries
          op_sub,         //  subtract top two stack entries
@@ -58,6 +63,9 @@ namespace client
 
          op_and,         //  logical and top two stack entries
          op_or,          //  logical or top two stack entries
+
+		 op_new_class,
+		 op_is_bool,
 
          op_add_var,     //  add new variable
          op_load,        //  load a variable
@@ -103,9 +111,37 @@ namespace client
          void operator()(
              info const& what
            , Iterator err_pos, Iterator last) const
-         {
+		{
+			std::stringstream ss;
+            ss  << "Error! Expecting "
+                 << what                         // what failed?
+                 << " here: \""
+                 << std::string(err_pos, last)   // iterators to error-pos, end
+                 << "\""
+                 << std::endl
+            ;
+            std::cout << ss.str();
+            QMessageBox::information(0,"Parser", ss.str().c_str());
+			my_not_error = false;
+		}
+    };
+	boost::phoenix::function<client::error_handler_> const error_handler = client::error_handler_();
+
+
+	struct error_handler_skip_
+	{
+         template <typename, typename, typename>
+         struct result { typedef void type; };
+
+         template <typename Iterator>
+         void operator()(
+             info const& what
+           , Iterator err_pos, Iterator last) const
+	{
+			my_not_error = false;
+
              std::stringstream ss;
-             ss  << "Error! Expecting "
+             ss  << "Error! Expectingkkklkl "
                  << what                         // what failed?
                  << " here: \""
                  << std::string(err_pos, last)   // iterators to error-pos, end
@@ -116,8 +152,7 @@ namespace client
              QMessageBox::information(0,"Parser", ss.str().c_str());
          }
      };
-     boost::phoenix::function<client::error_handler_> const error_handler = client::error_handler_();
-
+     boost::phoenix::function<client::error_handler_skip_> const error_handler_skip = client::error_handler_skip_();
      template <typename Iterator>
      struct dbase_skipper : public qi::grammar<Iterator>
      {
@@ -131,7 +166,7 @@ namespace client
              using qi::on_error;
              using qi::fail;
 
-             my_skip =  (char_(" \t\n\r"))                        |
+             my_skip =  (char_("[ \t\n\r]"))                        |
              ("**" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
              ("&&" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
              ("//" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
@@ -139,24 +174,78 @@ namespace client
              ;
 
              on_error<fail>
-              (
+             (
                   my_skip
                 , std::cout
                       << boost::phoenix::val("Error! Expecting comment")
                       << std::endl
-              );
+             );
+
+			 qi::on_error<fail>(my_skip, client::error_handler_skip(_4, _3, _2) );
 
              BOOST_SPIRIT_DEBUG_NODE((my_skip));
-         }
-         qi::rule<Iterator> my_skip;
-     };
+        }
+    	qi::rule<Iterator> my_skip;
+    };
 
-     struct my_ops {
-         byte_code op_code;
-         std::string name;
-         double value;
-     };
-     std::vector<struct my_ops> code;
+	// ------------------------------------
+	// our class for storing stacked data;
+	// pre-process, later as reference for
+	// the DSL ...
+	// ------------------------------------
+	class my_value {		// BigInt wrapper
+	public:
+		my_value() { }
+
+		double  isDouble;	// as double value
+		QString isString;	// as BigInt string
+
+		void setTag(int i)	{ tag = i; }
+	private:
+		int tag;			// tag for differ the type
+	};
+
+	class my_class {
+	public:
+		my_class() { }
+
+		QString cname;		// class name
+		QString pname;		// class parent name
+
+		void setTag(int i)	{ tag = i; }	
+	private:
+		int tag;			// tag for difer type
+	};
+
+	class my_bool {
+	public:
+		my_bool() { }
+
+		QString cname;		// name of var.
+		bool    status; 	// is false/true ?
+	private:
+		int tag;
+	};
+
+	class my_ops {
+	public:
+        byte_code op_code;	// type of opcode
+        std::string name;	// name of variable
+
+		QVector<my_class> isClass;		// class ptr, if stacked
+		QVector<my_value> isValue;		// class for numeric
+		bool			isBoolean;		// class is boolean?
+
+		void setTag(int i) { tag = i; }
+	private:
+		int tag;			// tag for differ type
+    };
+
+	// ---------------------------
+	// the "code" holder ...
+	// ---------------------------
+    QVector<my_ops>  *      code;
+	QVector<bool>    global_bool;
 
 
 	struct error
@@ -185,76 +274,119 @@ namespace client
 
      struct compile_op
      {
-         template <typename A, typename B = unused_type, typename C = unused_type>
-         struct result { typedef void type; };
+        template <typename A, typename B = unused_type, typename C = unused_type>
+        struct result { typedef void type; };
 
-         compile_op() { }
-         compile_op(std::vector<my_ops> _code)
-         {
-             cout << "weiter00000" << endl;
-             code = _code;
-             cout << "weiter11111" << endl;
-         }
+        compile_op() { }
 
-
-         void operator()(const byte_code&, boost::spirit::unused_type& ut) const
-         {
-             cout << "unnnnn" << endl;
-         }
-
-         void operator()(const byte_code &a) const
-         {
-             cout << "weiter22222" << endl;
-
-             struct my_ops my_pspush;
-             my_pspush.op_code = a;
-             my_pspush.name    = "";
-             my_pspush.value   = 0.00;
-             code.push_back(my_pspush);
-
-             cout << "weiter333333" << endl;
-         }
-
-         void operator()(const byte_code &a, double &b) const
-         {
-             cout << "weiter4444444" << endl;
-
-             struct my_ops my_pspush;
-             my_pspush.op_code = a;
-             my_pspush.name    = "";
-             my_pspush.value   = b;
-             code.push_back(my_pspush);
-
-             cout << "weiter55555" << endl;
-         }
-
-         void operator()(const byte_code &a, const std::string &b) const
-         {
-             cout << "weiter1" << endl;
-             cout << b << endl;
-             cout << "weiter2" << endl;
-
-             struct my_ops my_pspush;
-             my_pspush.op_code = a;
-             my_pspush.name    = b;
-             my_pspush.value   = 0.00;
-             code.push_back(my_pspush);
-         }
-
-		void operator()(const std::string &s) const
+		void operator()(std::string &n1, std::string &s1) const
 		{
-			QMessageBox::information(0,"sssss",QString(s.c_str()));
+			if (n1 == "op1") st_name1 = n1; else
+			if (n1 == "op2") st_name2 = n1;
 		}
 
-        void operator()(byte_code a, byte_code b, byte_code c)
+        void operator()(const byte_code&, boost::spirit::unused_type& ut) const
         {
-			std::cout << "ifffererer" << std::endl;
-//             code.push_back(a);
-//             code.push_back(b);
-//             code.push_back(c);
-         }
-     };
+             cout << "unnnnn" << endl;
+        }
 
+		void operator()(std::string n1, int    value) const { std::cout << "integer" << endl; }
+		void operator()(std::string n1, double value) const { std::cout << "doubles" << endl; }
+
+		void operator()(std::string n1, bool bval) const {
+			auto my_pspush = new my_ops;
+
+			my_pspush->op_code   = op_is_bool;
+			my_pspush->isBoolean = bval;
+
+			code->append(*(my_pspush));
+		}
+
+        void operator()(const byte_code &a) const
+		{
+			// -------------------------
+			// allocate memory ...
+			// -------------------------
+            auto my_pspush = new my_ops;
+			auto my_psval  = new my_value;
+
+			// --------------------
+			// set some stuff ...
+			// --------------------
+            my_pspush->op_code = a;
+            my_pspush->name    = "";
+
+			my_psval->isDouble = 0.00;  	// default value = 0.00
+			my_psval->setTag(0);			// default type: 0 = value
+
+			// push structure onto vector ...
+			my_pspush->setTag(1);
+			my_pspush->isValue.append(*(my_psval));
+
+            code->append(*(my_pspush));
+		}
+
+		compile_op(QVector<client::my_ops> *_code)
+		{
+			cout << "weiter00000" << endl;
+			code = _code;
+			cout << "weiter11111" << endl;
+		}
+
+		void operator()(const std::string n1) const {
+			if (n1 == "op3") {
+				my_not_error = true;
+
+				auto my_pspush  = new my_ops;
+				auto my_psclass = new my_class;
+
+				my_psclass->cname = st_name1.c_str();
+				my_psclass->pname = st_name2.c_str();
+
+				my_pspush->isClass.append(*(my_psclass));
+				code->append(*(my_pspush));
+			}
+		}
+		void operator()(const std::string n1, const std::string n2) const {
+			if (n1 == "op1") st_name1 = n2; else
+			if (n1 == "op2") st_name2 = n2;
+
+			// ----------------------
+			// keyword: parameter ...
+			// ----------------------
+			else if (n1 == "op4") {
+				std::string s1;
+				int pos = 0;
+				while (1)  {
+					if (pos >= n2.size())
+					break;
+					s1 += n2[pos];
+					pos += 2;
+				}
+
+				if (s1.size() < 1) {
+					throw std::string("sting size < 1");
+				}
+
+				auto my_pspush  = new my_ops;
+				my_pspush->name = s1.c_str();
+				my_pspush->op_code = byte_code::op_is_bool;
+
+				code->append(*(my_pspush));
+			}
+		}
+		void operator()(
+			const std::string ops,
+			const std::string cname,
+			const std::string pname) const
+		{
+			// -------------------------------------
+			// convert all letters to lower case ...
+			// -------------------------------------
+			QString _ops = ops.c_str();
+		}
+
+	};
 
 	template <typename Iterator, typename Skipper = dbase_skipper<Iterator>>
 	struct dbase_grammar : public qi::grammar<Iterator, Skipper>
@@ -271,21 +403,70 @@ namespace client
             using qi::on_error;
             using qi::fail;
 
-            start %= *symsbols;
+            start %= * symsbols;
 
 			symsbols %=
 			(
-				(symbol_def_if) 		|
-				(symbol_def_expr)		|
-				(symbol_def_class)		|
 				(symbol_def_parameter)	|
-				(symbol_def_local)
+				(symbol_def_local)		|
+				(symbol_def_expr)		|
+				(symbol_def_if)			|
+				(symbol_def_class)
 			)
 			;
 
 
+			symbol_def_parameter =
+			(
+				symbol_parameter >
+				(	(
+						(
+							(symbol_alpha
+							[ _val = qi::_1, op("op4", qi::_1) ])
+						)
+						>> *(
+							',' > (symbol_alpha
+							[ _val = qi::_1, op("op4", qi::_1) ])
+						)
+					)
+					|
+					(
+						symbol_alpha  >> *(symbol_alpha >
+						eps[my_error("missong comma between variable") ])
+					)
+				)
+			)
+			;
+			symbol_def_local =
+			(
+				symbol_local >
+				(
+					(
+						(variable [ op("op4","qi::_1") ] )
+						>> *(',' > variable)
+					)
+					|
+					(
+						variable  >> *(variable) >
+						eps[my_error("missong comma between variable") ]
+					)
+				)
+			)
+			;
+
+			symbol_alpha %= (
+				 (qi::char_("a-zA-Z")     
+				[
+					qi::_val = phoenix::construct<std::string>(""),
+					qi::_val = val(qi::_1)
+				] ) >>
+				*(qi::char_("a-zA-Z0-9_") [ qi::_val = qi::_val + val(qi::_1) ])
+			)
+			;
+
 			qualified_id = symbol_alpha >> *('.' > symbol_alpha);
-			variable      = qualified_id;
+			variable     = qualified_id [_val = qi::_1];
+
 
 			symbol_expr %=
 			(
@@ -299,6 +480,9 @@ namespace client
 				|
 				(
 					(symbol_true | symbol_false)
+					[
+						_val = qi::_1
+					]
 				)
 				|
 				(
@@ -314,6 +498,23 @@ namespace client
 					>> *(
 							(lit("+") | lit("-") | lit("*") | lit("/"))
 							> symbol_expr
+					)
+				)
+				|
+				(
+					symbol_new > variable
+					>> *(
+						(
+							lit("(") >> *(symbol_expr) > lit(")")
+						)
+						|
+						(
+							(
+								lit("+") | lit("-") |
+								lit("*") | lit("/")
+							)
+							>	symbol_expr
+						)
 					)
 				)
 				|
@@ -340,23 +541,6 @@ namespace client
 				)
 				|
 				(
-					symbol_new > variable
-					>> *(
-						(
-							lit("(") >> *symbol_expr > lit(")")
-						)
-						|
-						(
-							(
-								lit("+") | lit("-") |
-								lit("*") | lit("/")
-							)
-							>	symbol_expr
-						)
-					)
-				)
-				|
-				(
 					(int_ | double_)
 					>> *(
 						(lit("+") | lit("-") | lit("*") | lit("/"))
@@ -370,64 +554,28 @@ namespace client
 			(
 				(
 					(
-						(
-							(symbol_true | symbol_false)
-							>> *(lit("+") | lit("-") | lit("*") | lit("/"))
-							>   expression
+						((lit("+") | lit("-") | lit("*") | lit("/"))
+						> 
+						(variable | int_ | double_))
+					)
+					|
+					(
+						(symbol_true | symbol_false) [
+							_val = qi::_1,
+							op("op6", phoenix::construct<bool>(qi::_1))
+						]
+					)
+					|
+					(
+						(variable | int_ | double_)
+						>> (
+							(lit("+") | lit("-") | lit("*") | lit("/"))
+							> symbol_expr2expr
 						)
-						|
-						(
-							lit("(") >> symbol_expr2expr > lit(")")
-							>> *(
-								(
-								   (lit("+") | lit("-") | lit("*") | lit("/"))
-									> expression
-								)
-								|
-								(
-										conditions
-									>	expression
-								)
-							)
-						)
-						|
-						(
-							(variable)
-							>> (
-							   (
-									(lit("(") >> *(symbol_expr2expr) > lit(")"))
-									>> (
-									    (lit("+") | lit("-") | lit("*") | lit("/"))
-										> expression
-									)
-								)
-								|
-								(
-									(lit("+") | lit("-") | lit("*") | lit("/"))
-									> expression
-								)
-								|
-								(
-										conditions
-									>	expression
-								)
-							)
-						)
-						|
-						(
-							(int_ | double_)
-							>> *(
-								(
-									(lit("+") | lit("-") | lit("*") | lit("/"))
-									> expression
-								)
-								|
-								(
-										conditions
-									>	expression
-								)
-							)
-						)
+					)
+					|
+					(
+						conditions >> (expression)
 					)
 				)
 			)
@@ -443,15 +591,24 @@ namespace client
 
 			expression %=
 			(
-				* (symbol_new)
-			    > (symbol_expr2expr)
+				(
+					(variable >> *(symbol_expr2expr)) |
+					(((int_) [
+						_val = qi::_1,
+						op("op5",val(qi::_1))
+					] ) >> *(symbol_expr2expr))
+				)
+				|	(
+					(symbol_new > variable)    >> (
+					(conditions > symbol_expr2expr))
+				)
 			)
 			;
 
 			symbol_def_if %=
 			(
 				(
-					(symbol_if > expression)
+					(symbol_if >> (lit("(")) > expression >> (lit(")")))
 					>> 	*(		symsbols)
 					>> 	*(	(symbol_else)
 			    	>> 	*(		symsbols) )
@@ -508,31 +665,26 @@ namespace client
 			)
 			;
 
-			symbol_string   = (any_stringSB);
-			symbol_def_expr =
+			symbol_def_class =
+			(
+				symbol_class > (symbol_alpha [ op("op1",val(qi::_1)) ] ) >
+				symbol_of	 > (symbol_alpha [ op("op2",val(qi::_1)) ] )
+				[
+					op("op3")
+				]
+			>> *(symsbols) >
+				 symbol_endclass [ _val = 1 ]
+			)
+			;
+
+			symbol_string    = (any_stringSB);
+			symbol_def_expr %=
 			(
 				(variable - (dont_handle_keywords))
 				>	lit("=")
 				>	(symbol_expr)
 			)
 			;
-
-			symbol_def_class =
-			(
-				symbol_class	> symbol_alpha >
-				symbol_of		> symbol_alpha >> *(symsbols) >
-				symbol_endclass
-			)
-			;
-
-			symbol_alpha %=
-				  qi::char_("a-zA-Z_") >>
-				*(qi::char_("a-zA-Z0-9_"))
-				;
-
-			symbol_def_parameter = (symbol_parameter > variable) >> *(',' > variable) ;
-			symbol_def_local	 = (symbol_local	 > variable) >> *(',' > variable) ;
-
 
 			dont_handle_keywords =
 			(	symbol_if
@@ -572,8 +724,8 @@ namespace client
 
 			conditions			.name("conditions expected");
 
-			symbol_true 	 = (lexeme[no_case["true" ]] | lexeme[no_case[".t."]]);
-			symbol_false	 = (lexeme[no_case["false"]] | lexeme[no_case[".f."]]);
+			symbol_true 	 = ((lexeme[no_case["true" ]] | lexeme[no_case[".t."]]) [_val = true ] );
+			symbol_false	 = ((lexeme[no_case["false"]] | lexeme[no_case[".f."]]) [_val = false] );
 
             symbol_if        =  lexeme[no_case["if"]];
             symbol_of        =  lexeme[no_case["of"]];
@@ -588,7 +740,7 @@ namespace client
             symbol_parameter =  lexeme[no_case["parameter"]];
 			symbol_procedure =  lexeme[no_case["procedure"]];
 
-			qi::on_error<fail>( start, client::error_handler(_4, _3, _2) );
+			qi::on_error<fail>( symsbols, client::error_handler(_4, _3, _2) );
 		}
 
 		qi::rule<Iterator, std::string()> any_SB;
@@ -610,9 +762,11 @@ namespace client
          symbol_alpha,
          symbol_ident;
 
-         qi::rule<Iterator, Skipper>
+		qi::rule<Iterator, bool> symbol_false, symbol_true;
+
+        qi::rule<Iterator, Skipper>
          symsbols, dont_handle_keywords, conditions,
-         symbol_local, symbol_false, symbol_true,
+         symbol_local,
          symbol_if, is_function,
          symbol_else,
          symbol_endif,
@@ -658,28 +812,71 @@ bool my_parser(std::string const str)
 	return r ;
 }
 
+static void
+show_error(void) {
+	QMessageBox::critical(0,
+	"Internal Error",
+	"could not convert object!");
+}
+
+// -----------------------------------------------
+// now, it is time to interpret the collection ...
+// -----------------------------------------------
+bool dbase_interpret()
+{
+	bool bool_last_value = false;
+
+	using namespace client;
+	for(auto it  = std::begin(*(code));
+			 it != std::end  (*(code)); ++it)
+	{	try {
+			if ( (it)->op_code == byte_code::op_is_bool) {
+				bool flag = (const bool)global_bool.at(0);  // to-do!!
+				bool_last_value = flag;
+				(it)->isBoolean = bool_last_value;
+			}
+			//else if (my_prg->op_code == byte_code::op_new_class) {
+			//	QMessageBox::information(0,"CLASS","a new classler");
+			//}
+		}	catch (...) { show_error(); }
+	}
+	return true;
+}
+
 bool parseText(std::string const s, int m)
 {
-    client::code.clear();
-    client::code.resize(10);
+	using namespace client;
+	code        = new QVector<my_ops >(10);
+	global_bool << true << false << true; // fixme: !!!
 
 	bool r = false;
 	try {
 		r = my_parser(s);
 		if (r) {
-			QMessageBox::information(0,"Parser", "Parsing SUCCESS.");
-			return true;
-		}	return false;
+			if (client::my_not_error == false) {
+				QMessageBox::information(0,"Parser", "Parsing SUCCESS..");
+				dbase_interpret();
+			}
+			else {
+				QMessageBox::information(0,"Parser", "Syntax Error!");
+			}
+
+			delete client::code; return true ;
+		}	delete client::code; return false;
 	}
 	catch (int &e) {
 		if (e == 1) {
-			 QMessageBox::information(0,"Parser", "Parsing SUCCESS.");
-			 return true ;
+			 QMessageBox::information(0,"Parser", "Parsing SUCCESS!!!!!.");
+			 dbase_interpret();
+
+			 delete client::code;
+			 return true;
 		}
 		else if (e == 7) {
 			 QMessageBox::information(0,"Parser", "Syntax Error!");
-			 return true;
-		}	 return false;
+
+			 delete client::code; return true ;
+		}	 delete client::code; return false;
 	}
 	catch (std::string &e) {
 		std::stringstream ss; ss
@@ -692,6 +889,7 @@ bool parseText(std::string const s, int m)
 	catch (...) {
 		QMessageBox::information(0,"Parser", "Parsing ERROR\nunknown.");
 	}
+	delete client::code;
     return r;
 }
 

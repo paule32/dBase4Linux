@@ -35,6 +35,7 @@ QMAKE_CXXFLAGS += \
 	-Wno-unused-local-typedefs \
     -Wno-unused-but-set-variable \
     -Wno-write-strings \
+	-Wno-switch \
     -Wno-extra \
     -Wno-reorder \
     -Wno-multichar \
