@@ -247,6 +247,8 @@ namespace client
     QVector<my_ops>  *      code;
 	QVector<bool>    global_bool;
 
+	std::string last_token;
+
 
 	struct error
 	{
@@ -347,36 +349,53 @@ namespace client
 				code->append(*(my_pspush));
 			}
 		}
-		void operator()(const std::string n1, const std::string n2) const {
+
+		// ----------------------------
+		// set the "variable" ident ...
+		// ----------------------------
+		std::string
+		set_ident(std::string s) const
+		{
+QMessageBox::information(0,"interwegs",s.c_str() );
+			std::string s1;
+			int pos = 0;
+			while (1)  {
+				if (pos >= s.size()) break;
+				s1 += s[pos];
+				pos += 2;
+			}
+
+			if (s1.size() < 1) {
+				throw std::string("sting size < 1");
+			}
+
+			auto my_pspush  = new my_ops;
+			my_pspush->name = s1.c_str();
+			my_pspush->op_code = byte_code::op_is_bool;
+
+			code->append(*(my_pspush));
+			return s1;
+		}
+
+		void operator()(const std::string n1, const std::string n2) const
+		{
+			std::string s;
+
 			if (n1 == "op1") st_name1 = n2; else
 			if (n1 == "op2") st_name2 = n2;
 
-			// ----------------------
-			// keyword: parameter ...
-			// ----------------------
-			else if (n1 == "op4") {
-				std::string s1;
-				int pos = 0;
-				while (1)  {
-					if (pos >= n2.size())
-					break;
-					s1 += n2[pos];
-					pos += 2;
-				}
-
-				if (s1.size() < 1) {
-					throw std::string("sting size < 1");
-				}
-
-				auto my_pspush  = new my_ops;
-				my_pspush->name = s1.c_str();
-				my_pspush->op_code = byte_code::op_is_bool;
-
-				code->append(*(my_pspush));
+			// -----------------------------
+			// keyword: parameter, expr= ...
+			// -----------------------------
+				QMessageBox::information(0,"1212informPAAA",n2.c_str() );
+			 if (n1 == "op4") { s = set_ident(n2); }
+			else if (n1 == "op7") { s = set_ident(n2);
+				QMessageBox::information(0,"1212informPAAA",s.c_str() );
+				last_token = s;
+				QMessageBox::information(0,"informPAAA",s.c_str() );
 			}
-
-			else if (n1 == "op7") {
-				QMessageBox::information(0,"informPAAA",n2.c_str() );
+			else if (n1 == "op8") {
+				QMessageBox::information(0,"34343 informPAAA Laster",last_token.c_str());
 			}
 		}
 		void operator()(
@@ -459,21 +478,16 @@ namespace client
 			;
 
 			symbol_alpha %= (
-				 (qi::char_("a-zA-Z")     
-				[
-					qi::_val = phoenix::construct<std::string>(""),
-					qi::_val = val(qi::_1)
-				] ) >>
-				*(qi::char_("a-zA-Z0-9_") [ qi::_val = qi::_val + val(qi::_1) ])
+				(qi::char_("a-zA-Z")     
+				[	_val =        val(qi::_1)] ) >> *(qi::char_("a-zA-Z0-9_")
+				[	_val = _val + val(qi::_1)] )
 			)
 			;
 
-			qualified_id = (symbol_alpha >> *('.' > symbol_alpha) [_val = qi::_1 ]);
-			variable     = (qualified_id
-			[
-				_val = qi::_1,
-				op("op7",phoenix::construct<std::string>(qi::_1))
-			]);
+			qualified_id = ((symbol_alpha
+			[_val = qi::_1] )) >> *('.' > (symbol_alpha
+			[_val = qi::_1] ));			variable = (qualified_id
+			[_val = qi::_1, op("op7", qi::_1)] );
 
 
 			symbol_expr %=
@@ -489,7 +503,8 @@ namespace client
 				(
 					(symbol_true | symbol_false)
 					[
-						_val = qi::_1
+						op("op8", last_token),
+						_val    = phoenix::construct<bool       >(qi::_1)
 					]
 				)
 				|
@@ -685,10 +700,15 @@ namespace client
 			)
 			;
 
-			symbol_string    = (any_stringSB);
-			symbol_def_expr %=
+			symbol_string   = (any_stringSB);
+			symbol_def_expr =
 			(
-				(variable - (dont_handle_keywords))
+				((variable
+				[
+					_val   = qi::_1,
+					op("op7",qi::_1)
+				]
+				)	- (dont_handle_keywords))
 				>	lit("=")
 				>	(symbol_expr)
 			)
