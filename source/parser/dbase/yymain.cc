@@ -19,9 +19,12 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <vector>
 
 #include <QMessageBox>
+#include <QString>
+#include <QVariant>
+
+#include <QDebug>
 
 using namespace std;
 
@@ -40,10 +43,10 @@ namespace client
     namespace qi = boost::spirit::qi;
     namespace ascii = boost::spirit::ascii;
 
-	std::string st_name1;
-	std::string st_name2;
+	QString st_name1;
+	QString st_name2;
 
-	bool my_not_error = false;
+	bool my_not_error = true;
 
     enum byte_code
     {
@@ -66,6 +69,9 @@ namespace client
 
 		 op_new_class,
 		 op_is_bool,
+		 op_is_ident,
+		 op_is_number,
+		 op_is_arith,
 
          op_add_var,     //  add new variable
          op_load,        //  load a variable
@@ -82,24 +88,6 @@ namespace client
          op_stk_adj,     // adjust the stack (for args and locals)
          op_call,        // function call
          op_return       // return from function
-     };
-
-     class vmachine
-     {
-     public:
-
-         vmachine(unsigned stackSize = 4096)
-           : stack(stackSize)
-         {
-         }
-
-         int execute(
-             std::vector<int> const& code            // the program code
-           , std::vector<int>::const_iterator pc     // program counter
-           , std::vector<int>::iterator frame_ptr    // start of arguments and locals
-         );
-
-         std::vector<int> stack;
      };
 
      struct error_handler_
@@ -153,40 +141,63 @@ namespace client
          }
      };
      boost::phoenix::function<client::error_handler_skip_> const error_handler_skip = client::error_handler_skip_();
-     template <typename Iterator>
-     struct dbase_skipper : public qi::grammar<Iterator>
-     {
-         dbase_skipper() : dbase_skipper::base_type(my_skip, "dBase")
-         {
-             using qi::ascii::char_;
-             using qi::ascii::space;
-             using qi::eol;
-             using qi::eoi;
 
-             using qi::on_error;
-             using qi::fail;
+	// ----------------------------------------------
+	// little struct, that handles the new-lines ...
+	// ----------------------------------------------
+	int line_no = 0;
+	struct
+	line_no_struct
+    {
+	   	template <typename T>
+        void operator()(T const &t) const
+        {
+			const QChar c = t;
+			if (c == '\n' || c == '\r') {
+				++line_no;
+			}
+        }
+	};
+	// ------------------------------------------------
+	// custom skipper ...
+	// for comments
+	// ------------------------------------------------
+    template <typename Iterator>
+    struct dbase_skipper : public qi::grammar<Iterator>
+    {
+		dbase_skipper() : dbase_skipper::base_type(my_skip, "dBase")
+        {
+            using qi::ascii::char_;
+            using qi::ascii::space;
+            using qi::eol;
+            using qi::eoi;
 
-             my_skip =  (char_("[ \t\n\r]"))                        |
-             ("**" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
-             ("&&" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
-             ("//" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
-             ("/*" >> *((char_("äöüÄÖÜß") | char_) - "*/") >> "*/")
-             ;
+            using qi::on_error;
+            using qi::fail;
 
-             on_error<fail>
-             (
-                  my_skip
+			my_skip =  (char_("[ \t\n\r]") [ line_func(qi::_1) ] )     |
+            ("**" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
+            ("&&" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
+            ("//" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
+            ("/*" >> *((char_("äöüÄÖÜß") | char_) - "*/") >> "*/")
+            ;
+
+            on_error<fail>
+            (
+                my_skip
                 , std::cout
                       << boost::phoenix::val("Error! Expecting comment")
                       << std::endl
-             );
+            );
 
-			 qi::on_error<fail>(my_skip, client::error_handler_skip(_4, _3, _2) );
+			qi::on_error<fail>(my_skip, client::error_handler_skip(_4, _3, _2) );
+            BOOST_SPIRIT_DEBUG_NODE((my_skip));
+		}
 
-             BOOST_SPIRIT_DEBUG_NODE((my_skip));
-        }
-    	qi::rule<Iterator> my_skip;
-    };
+		char c;
+		rule<Iterator> my_skip;
+		phoenix::function<line_no_struct> line_func;
+	};
 
 	// ------------------------------------
 	// our class for storing stacked data;
@@ -230,24 +241,25 @@ namespace client
 	class my_ops {
 	public:
         byte_code op_code;	// type of opcode
-        std::string name;	// name of variable
+        QString   name   ;	// name of variable
 
 		QVector<my_class> isClass;		// class ptr, if stacked
-		QVector<my_value> isValue;		// class for numeric
-		bool			isBoolean;		// class is boolean?
+		QVariant          isValue;		// class for numeric
+		bool			  isBoolean;	// class is boolean?
 
 		void setTag(int i) { tag = i; }
 	private:
 		int tag;			// tag for differ type
     };
 
-	// ---------------------------
+	// --------------------------
 	// the "code" holder ...
-	// ---------------------------
-    QVector<my_ops>  *      code;
+	// --------------------------
+    QVector<my_ops*>     code(5);
 	QVector<bool>    global_bool;
 
-	std::string last_token;
+	int srcLine = 0;		// internal line
+    QString last_token;
 
 
 	struct error
@@ -274,14 +286,14 @@ namespace client
 		}
 	};
 
-     struct compile_op
-     {
+	struct compile_op
+    {
         template <typename A, typename B = unused_type, typename C = unused_type>
         struct result { typedef void type; };
 
         compile_op() { }
 
-		void operator()(std::string &n1, std::string &s1) const
+		void operator()(QString &n1, QString &s1) const
 		{
 			if (n1 == "op1") st_name1 = n1; else
 			if (n1 == "op2") st_name2 = n1;
@@ -292,16 +304,26 @@ namespace client
              cout << "unnnnn" << endl;
         }
 
-		void operator()(std::string n1, int    value) const { std::cout << "integer" << endl; }
-		void operator()(std::string n1, double value) const { std::cout << "doubles" << endl; }
+		void operator()(const QString n1, int value) const
+		{
+			if (n1 == "op8")  // number: int_
+			{
+				auto my_pspush = new my_ops;
+				my_pspush->op_code = op_is_number;
+				my_pspush->isValue = value;
 
-		void operator()(std::string n1, bool bval) const {
+				code.append(my_pspush);
+			}
+		}
+		void operator()(const QString n1, double value) const { std::cout << "doubles" << endl; }
+
+		void operator()(QString n1, bool bval) const {
 			auto my_pspush = new my_ops;
 
 			my_pspush->op_code   = op_is_bool;
 			my_pspush->isBoolean = bval;
 
-			code->append(*(my_pspush));
+			code.append(my_pspush);
 		}
 
         void operator()(const byte_code &a) const
@@ -310,58 +332,41 @@ namespace client
 			// allocate memory ...
 			// -------------------------
             auto my_pspush = new my_ops;
-			auto my_psval  = new my_value;
 
 			// --------------------
 			// set some stuff ...
 			// --------------------
             my_pspush->op_code = a;
             my_pspush->name    = "";
+			my_pspush->isValue = 0.00;  	// default value = 0.00
 
-			my_psval->isDouble = 0.00;  	// default value = 0.00
-			my_psval->setTag(0);			// default type: 0 = value
-
-			// push structure onto vector ...
-			my_pspush->setTag(1);
-			my_pspush->isValue.append(*(my_psval));
-
-            code->append(*(my_pspush));
+            code.append(my_pspush);
 		}
 
-		compile_op(QVector<client::my_ops> *_code)
-		{
-			cout << "weiter00000" << endl;
-			code = _code;
-			cout << "weiter11111" << endl;
-		}
-
-		void operator()(const std::string n1) const {
+		void operator()(const QString n1) const {
 			if (n1 == "op3") {
-				my_not_error = true;
-
 				auto my_pspush  = new my_ops;
 				auto my_psclass = new my_class;
 
-				my_psclass->cname = st_name1.c_str();
-				my_psclass->pname = st_name2.c_str();
+				my_psclass->cname = st_name1;
+				my_psclass->pname = st_name2;
 
 				my_pspush->isClass.append(*(my_psclass));
-				code->append(*(my_pspush));
+				code.append(my_pspush);
 			}
 		}
 
 		// ----------------------------
 		// set the "variable" ident ...
 		// ----------------------------
-		std::string
-		set_ident(std::string s) const
+		QString
+		set_ident(QString s, int type, QVariant val) const
 		{
-QMessageBox::information(0,"interwegs",s.c_str() );
-			std::string s1;
+			QString s1;
 			int pos = 0;
 			while (1)  {
 				if (pos >= s.size()) break;
-				s1 += s[pos];
+				s1  += s[pos];
 				pos += 2;
 			}
 
@@ -370,16 +375,42 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 			}
 
 			auto my_pspush  = new my_ops;
-			my_pspush->name = s1.c_str();
-			my_pspush->op_code = byte_code::op_is_bool;
+			my_pspush->isValue = val;
 
-			code->append(*(my_pspush));
+			switch (type)
+			{
+				case 0: my_pspush->op_code = byte_code::op_is_bool  ; break;
+				case 1: my_pspush->op_code = byte_code::op_is_ident ; break;
+				case 2:
+				{
+					my_pspush->op_code = byte_code::op_is_number;
+					my_pspush->isValue = val.toInt();
+				}
+				break;
+				case 3:
+				{
+					my_pspush->op_code = byte_code::op_is_arith;
+
+					if (val == QString("+")) my_pspush->op_code = byte_code::op_add; else
+					if (val == QString("-")) my_pspush->op_code = byte_code::op_sub; else
+					if (val == QString("/")) my_pspush->op_code = byte_code::op_div; else
+					if (val == QString("*")) my_pspush->op_code = byte_code::op_mul;
+				}
+				break;
+			}
+
+			my_pspush->name = QString("L%1:%2")
+							.arg(++srcLine)
+							.arg(s1);
+
+			code.append(my_pspush);
 			return s1;
 		}
 
-		void operator()(const std::string n1, const std::string n2) const
+		void operator()(const QString n1, const QString n2) const
 		{
-			std::string s;
+			QString s;
+			static QString last;
 
 			if (n1 == "op1") st_name1 = n2; else
 			if (n1 == "op2") st_name2 = n2;
@@ -387,26 +418,20 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 			// -----------------------------
 			// keyword: parameter, expr= ...
 			// -----------------------------
-				QMessageBox::information(0,"1212informPAAA",n2.c_str() );
-			 if (n1 == "op4") { s = set_ident(n2); }
-			else if (n1 == "op7") { s = set_ident(n2);
-				QMessageBox::information(0,"1212informPAAA",s.c_str() );
-				last_token = s;
-				QMessageBox::information(0,"informPAAA",s.c_str() );
-			}
-			else if (n1 == "op8") {
-				QMessageBox::information(0,"34343 informPAAA Laster",last_token.c_str());
-			}
+		         if (n1 == "op4") { s = set_ident(n2,0,"");         last = s; }
+			else if (n1 == "op7") { s = set_ident(n2,1,n2);         last = s; } // ident 
+			else if (n1 == "op9") {	s = set_ident(n2,3,n2);         last = s; } // operator
+			
 		}
 		void operator()(
-			const std::string ops,
-			const std::string cname,
-			const std::string pname) const
+			const QString ops,
+			const QString cname,
+			const QString pname) const
 		{
 			// -------------------------------------
 			// convert all letters to lower case ...
 			// -------------------------------------
-			QString _ops = ops.c_str();
+			QString _ops = ops;
 		}
 
 	};
@@ -479,15 +504,15 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 
 			symbol_alpha %= (
 				(qi::char_("a-zA-Z")     
-				[	_val =        val(qi::_1)] ) >> *(qi::char_("a-zA-Z0-9_")
-				[	_val = _val + val(qi::_1)] )
+				[	_val =        val(qi::_1), line_func(qi::_1) ] ) >> *(qi::char_("a-zA-Z0-9_")
+				[	_val = _val + val(qi::_1), line_func(qi::_1) ] )
 			)
 			;
 
 			qualified_id = ((symbol_alpha
-			[_val = qi::_1] )) >> *('.' > (symbol_alpha
-			[_val = qi::_1] ));			variable = (qualified_id
-			[_val = qi::_1, op("op7", qi::_1)] );
+			[_val = qi::_1] )) >> *('.'  > (symbol_alpha
+			[_val = qi::_1] )); variable = (qualified_id
+			[_val = qi::_1] ) ;
 
 
 			symbol_expr %=
@@ -501,11 +526,11 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 				)
 				|
 				(
-					(symbol_true | symbol_false)
+					((symbol_true | symbol_false)
 					[
-						op("op8", last_token),
-						_val    = phoenix::construct<bool       >(qi::_1)
-					]
+						_val    = qi::_1,
+						op("op4", qi::_1)
+					])
 				)
 				|
 				(
@@ -564,9 +589,15 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 				)
 				|
 				(
-					(int_ | double_)
+					((int_ )
+					[	_val = qi::_1,
+						op("op8",qi::_1)
+					]
+					)
 					>> *(
-						(lit("+") | lit("-") | lit("*") | lit("/"))
+						((lit("+") | lit("-") | lit("*") | lit("/"))
+						//[ op("op9",qi::_1)  ]
+						)
 						> symbol_expr
 					)
 				)
@@ -583,10 +614,11 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 					)
 					|
 					(
-						(symbol_true | symbol_false) [
-							_val = qi::_1,
-							op("op6", phoenix::construct<bool>(qi::_1))
-						]
+						(symbol_true | symbol_false)
+						//[
+							//_val = qi::_1,
+							//op("op6", qi::_1)
+						//]
 					)
 					|
 					(
@@ -771,8 +803,8 @@ QMessageBox::information(0,"interwegs",s.c_str() );
 			qi::on_error<fail>( symsbols, client::error_handler(_4, _3, _2) );
 		}
 
-		qi::rule<Iterator, std::string()> any_SB;
-		qi::rule<Iterator, std::string()> any_stringSB;
+		qi::rule<Iterator, QString()> any_SB;
+		qi::rule<Iterator, QString()> any_stringSB;
 
         qi::rule<Iterator, Skipper> assignment_rhs;
         qi::rule<Iterator, Skipper>
@@ -784,7 +816,9 @@ QMessageBox::information(0,"interwegs",s.c_str() );
         boost::phoenix::function<compile_op> op;
         boost::phoenix::function<error     > my_error;
 
-        qi::rule<Iterator, std::string()>
+		boost::phoenix::function<line_no_struct> line_func;
+
+        qi::rule<Iterator, QString()>
 		variable,
 		qualified_id,
         symbol_alpha,
@@ -840,71 +874,84 @@ bool my_parser(std::string const str)
 	return r ;
 }
 
-static void
-show_error(void) {
-	QMessageBox::critical(0,
-	"Internal Error",
-	"could not convert object!");
-}
-
 // -----------------------------------------------
 // now, it is time to interpret the collection ...
 // -----------------------------------------------
 bool dbase_interpret()
 {
-	bool bool_last_value = false;
-
 	using namespace client;
-	for(auto it  = std::begin(*(code));
-			 it != std::end  (*(code)); ++it)
-	{	try {
-			if ( (it)->op_code == byte_code::op_is_bool) {
-				bool flag = (const bool)global_bool.at(0);  // to-do!!
-				bool_last_value = flag;
-				(it)->isBoolean = bool_last_value;
+	int i,a;
+	my_ops *mptr;
+
+	if (code.count()+5 < 7) goto ende;
+
+	for (i = 5; i < code.count()+1; ++i)
+	{
+		mptr = code[i];
+		if (mptr == nullptr)
+		throw QString("nullptr in code vector.");
+	cout << "12122212" << endl;
+
+		if (mptr->op_code == byte_code::op_is_bool) {
+			mptr->isBoolean = true;
+		}
+		else if (mptr->op_code == byte_code::op_is_ident) {
+			QMessageBox::information(0,"isident",mptr->name);
+/*
+			++i;
+			if (i > code.count()) {
+				QMessageBox::information(0,"Exec","Index Out of Bounds.");
+				break;
 			}
-			//else if (my_prg->op_code == byte_code::op_new_class) {
-			//	QMessageBox::information(0,"CLASS","a new classler");
-			//}
-		}	catch (...) { show_error(); }
+			else {
+				mptr = code[i];
+				if (mptr->op_code == byte_code::op_is_number) {
+					QMessageBox::information(0,"isident","number");
+				}
+			}
+	*/	}
 	}
+	ende:
 	return true;
 }
 
 bool parseText(std::string const s, int m)
 {
 	using namespace client;
-	code        = new QVector<my_ops >(10);
+	line_no      = 1;
 	global_bool << true << false << true; // fixme: !!!
+	my_not_error = true;
+	code.clear();
+	code.resize(5);
 
 	bool r = false;
 	try {
 		r = my_parser(s);
 		if (r) {
-			if (client::my_not_error == false) {
-				QMessageBox::information(0,"Parser", "Parsing SUCCESS..");
+			if (my_not_error == true) {
+				QString succ = QString("Parsing SUCCESS!\n\nLines: %1").arg((line_no/6)+1);
+				QMessageBox::information(0,"Parser", succ);
 				dbase_interpret();
+				QMessageBox::information(0,"Parser", "succc");
+				return true ;
 			}
 			else {
 				QMessageBox::information(0,"Parser", "Syntax Error!");
 			}
-
-			delete client::code; return true ;
-		}	delete client::code; return false;
+		}	return r;
 	}
 	catch (int &e) {
 		if (e == 1) {
 			 QMessageBox::information(0,"Parser", "Parsing SUCCESS!!!!!.");
 			 dbase_interpret();
 
-			 delete client::code;
 			 return true;
 		}
 		else if (e == 7) {
-			 QMessageBox::information(0,"Parser", "Syntax Error!");
+			 QMessageBox::information(0,"Parser", "Syntax Error!!");
 
-			 delete client::code; return true ;
-		}	 delete client::code; return false;
+			 return true ;
+		}	 return false;
 	}
 	catch (std::string &e) {
 		std::stringstream ss; ss
@@ -914,10 +961,18 @@ bool parseText(std::string const s, int m)
 		<< std::endl;
 		QMessageBox::information(0,"Parser", ss.str().c_str());
 	}
-	catch (...) {
-		QMessageBox::information(0,"Parser", "Parsing ERROR\nunknown.");
+	catch (QString &e) {
+		QMessageBox::information(0,"Exception",e);
+		return false;
 	}
-	delete client::code;
+	catch (std::bad_alloc &e) {
+		QMessageBox::information(0,"Parser", "Parsing ERROR\nstd::bad_alloc");
+		return false;
+	}
+	catch (...) {
+		QMessageBox::information(0,"Parser", "Memory Error");
+		return false;
+	}
     return r;
 }
 

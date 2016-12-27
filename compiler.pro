@@ -6,7 +6,7 @@
 #------------------------------------------------------------------------
 TEMPLATE = app
 TARGET   = dbase
-CONFIG  += release c++1y
+CONFIG  += release
 
 QT = core gui widgets help network
 
@@ -30,6 +30,7 @@ DEFINES += BUILDDATE=\\\"$$system(date '+%Y-%m-%d')\\\"
 # if you would not use pch - pre-compiled-header, just remove -H block
 #----------------------------------------------------------------------
 QMAKE_CXXFLAGS += \
+	-std=c++14 \
 	-Wno-unused-parameter \
 	-Wno-unused-variable \
 	-Wno-unused-local-typedefs \
