@@ -33,6 +33,8 @@
 
 #include <QDebug>
 
+#define MsgBox(t,txt)  QMessageBox::information(0,t,txt)
+
 using namespace std;
 
 using boost::phoenix::function;
@@ -276,7 +278,6 @@ namespace client
 
 		QVector<my_class> isClass;		// class ptr, if stacked
 		QVariant          isValue;		// class for numeric
-		bool			  isBoolean;	// class is boolean?
 
 		void setTag(int i) { tag = i; }
 	private:
@@ -332,18 +333,28 @@ namespace client
 			const std::string TB = typeid(T2).name();
 
 			QString s1;
-			int pos = 0;
-			while (1) {
-				s1  += QString(t2)[pos];
-				pos += 2;
-				if (pos > QString(t2).size())
-				break;
-			}
+			auto my_tmp = new my_ops;
+			MsgBox("testung",TB.c_str());
 
+			if ((TA == "PKc")
+			&& ( TB == "i"))
+			{
+				my_tmp->op_code = byte_code::op_is_number;
+				my_tmp->isValue = QString("%1").arg(t2).toInt();
+				my_tmp->name    = "int";
+				code.append(my_tmp);
+			}   else
 			if ((TA == "PKc")
 			&& ( TB == "7QString"))
 			{
-				auto my_tmp = new my_ops;
+				int pos = 0;
+				while (1) {
+					s1  += QString(t2)[pos];
+					pos += 2;
+					if (pos > QString(t2).size())
+					break;
+				}
+
 				my_tmp->op_code = byte_code::op_is_ident;
 				my_tmp->isValue = s1;
 				my_tmp->name    = s1;
@@ -510,8 +521,8 @@ namespace client
 				|
 				(
 					((int_ )
-					[	_val = qi::_1 //,
-						//op("op8",qi::_1)
+					[	_val   = qi::_1,
+						op("op2",qi::_1)
 					]
 					)
 					>> *(
@@ -659,11 +670,10 @@ namespace client
 				[
 					_val   = qi::_1,
 					op("op7",qi::_1)
-				]))
-/*
-				)	- (dont_handle_keywords))
+				])
+					- (dont_handle_keywords))
 				>	lit("=")
-				>	(symbol_expr)*/
+				>	(symbol_expr)
 			)
 			;
 
@@ -804,6 +814,7 @@ bool dbase_interpret()
 	int i,a;
 	class my_ops *mptr;
 
+	QVariant  last_val;
 	byte_code last_op = byte_code::op_birth;
 
 	std::reverse(code.begin(), code.end());
@@ -815,19 +826,24 @@ bool dbase_interpret()
 
 		switch (mptr->op_code)
 		{
-			case byte_code::op_is_bool:
-			{
-				cout << "boolser" << endl;
-				mptr->isBoolean = true;
-			}	break;
 			case byte_code::op_is_number:
 			{
-				QMessageBox::information(0,"isnumber",QString("----> %1").arg(mptr->isValue.toInt()));
-				last_op = byte_code::op_is_number;
+				QMessageBox::information(0,"isnumber",
+				QString("----> %1").arg(mptr->isValue.toInt()));
+
+				last_op  = byte_code::op_is_number;
+				last_val = mptr->isValue.toInt();
 			}	break;
 			case byte_code::op_is_ident:
 			{
-				QMessageBox::information(0,"isident",mptr->name);
+				//if (last_val.type() == QVariant::Int)
+				{
+					mptr->isValue = last_val;
+					QMessageBox::information(0,"isident",
+					QString("--> %1 = %2")
+					.arg(mptr->name)
+					.arg(last_val.toInt()));
+				}
 			}	break;
 		}
 	}
