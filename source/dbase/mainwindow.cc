@@ -44,9 +44,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
     show();
 
+/*
     update = new update_dbase(dynamic_cast<QDialog*>(this));
     update->show();
-    update->exec();
+    update->exec();*/
 }
 
 MainWindow::~MainWindow() {

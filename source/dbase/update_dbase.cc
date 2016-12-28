@@ -16,10 +16,18 @@ QString base64_decode(QString string){
     return QByteArray::fromBase64(ba);
 }
 
+#ifdef updaterimpl
 update_dbase::update_dbase(QDialog *parent) :
     QDialog(parent),
     ui(new Ui::update_dbase)
+#else
+update_dbase::update_dbase(QDialog *parent)
+#endif
+#ifndef updaterimpl
 {
+	return;
+#else
+
     ui->setupUi(this);
 
     manager = new QNetworkAccessManager(this);
@@ -35,6 +43,7 @@ update_dbase::update_dbase(QDialog *parent) :
 
     show();
     mode = 0; manager->get(QNetworkRequest(QUrl("http://updates.dbase.tools/test.txt")));
+#endif
 }
 
 update_dbase::~update_dbase()
