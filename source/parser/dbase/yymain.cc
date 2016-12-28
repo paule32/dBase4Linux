@@ -337,6 +337,17 @@ namespace client
 			MsgBox("testung",TB.c_str());
 
 			if ((TA == "PKc")
+			&& ( TB == "b"))
+			{
+				int vb = QString("%1").arg(t2).toInt();
+				QVariant var = vb;
+
+				my_tmp->op_code = byte_code::op_is_bool;
+				my_tmp->isValue = var;
+				my_tmp->name    = "bool";
+				code.append(my_tmp);
+			}   else
+			if ((TA == "PKc")
 			&& ( TB == "i"))
 			{
 				my_tmp->op_code = byte_code::op_is_number;
@@ -432,7 +443,14 @@ namespace client
 			)
 			;
 
-			symbol_alpha %= (symbol_alpha_alone [ _val = qi::_1 /*, line_func(qi::_1)*/ ] );
+			symbol_alpha %=
+			(
+				(symbol_alpha_alone
+				[
+					_val   = qi::_1,
+					op("op7",qi::_1)
+				]	)
+			);
 			symbol_alpha_alone %= (
 				(qi::char_("a-zA-Z")     
 				[ _val =        val(qi::_1) ] ) >> *(qi::char_("a-zA-Z0-9_")
@@ -442,8 +460,12 @@ namespace client
 
 			qualified_id = ((symbol_alpha
 			[_val = qi::_1] )) >> *('.'  > (symbol_alpha
-			[_val = qi::_1] )); variable = (qualified_id
-			[_val = qi::_1] ) ;
+			[_val = qi::_1] ));
+
+			variable = (qualified_id
+			[	_val =   qi::_1,
+				op("op7",qi::_1) ]
+			)	;
 
 
 			symbol_expr %=
@@ -459,8 +481,8 @@ namespace client
 				(
 					((symbol_true | symbol_false)
 					[
-						_val    = qi::_1 //,
-						//op("op4", qi::_1
+						_val    = qi::_1,
+						op("op3", qi::_1)
 					])
 				)
 				|
@@ -826,6 +848,16 @@ bool dbase_interpret()
 
 		switch (mptr->op_code)
 		{
+			case byte_code::op_is_bool:
+			{
+				MsgBox("isbool",
+				QString("----> %1").arg(mptr->isValue.toInt()));
+				last_op  = byte_code::op_is_bool;
+
+				if (mptr->isValue == "0")
+				last_val = 0; else
+				last_val = 1;
+			}	break;
 			case byte_code::op_is_number:
 			{
 				QMessageBox::information(0,"isnumber",
