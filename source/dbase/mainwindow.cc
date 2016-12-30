@@ -1,6 +1,7 @@
 #include "source/includes/mainwindow.h"
 #include "source/includes/update_dbase.h"
 #include "source/includes/helplistview.h"
+#include "source/includes/antifreeze.h"
 
 #include <QStandardItemModel>
 #include <QStatusBar>
@@ -42,7 +43,8 @@ MainWindow::MainWindow(QWidget *parent) :
             &MainWindow::on_actionEinstellungen
             );
 
-    show();
+	show();
+
 
 /*
     update = new update_dbase(dynamic_cast<QDialog*>(this));

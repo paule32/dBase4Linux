@@ -34,6 +34,7 @@
 #include <QDebug>
 
 #define MsgBox(t,txt)  QMessageBox::information(0,t,txt)
+#define phxNew(t,o)    (o)
 
 using namespace std;
 
@@ -208,7 +209,7 @@ namespace client
             using qi::on_error;
             using qi::fail;
 
-			my_skip =  (char_("[ \t\n\r]") [ line_func(qi::_1) ] )     |
+			my_skip =  (char_("[ \t\n\r]") [ _val = qi::_1, line_func(qi::_1) ] )     |
             ("**" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
             ("&&" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
             ("//" >> *((char_("äöüÄÖÜß") | char_) - eol) >> (eol | eoi | char_("[\n\r]"))) |
@@ -326,16 +327,30 @@ namespace client
 
 	struct compile_op
     {
-	   	template <typename T1, typename T2>
-        void operator()(T1 const &t1, T2 const &t2) const
+	   	template <typename T1, typename T2, typename T3 = byte_code>
+        void operator()(T1 const &t1, T2 const &t2, T3 const &t3 = byte_code::op_birth) const
 		{
-			const std::string TA = typeid(T1).name(); 
-			const std::string TB = typeid(T2).name();
+			QString TA = typeid(T1).name(); 
+			QString TB = typeid(T2).name();
 
 			QString s1;
+			
 			auto my_tmp = new my_ops;
-			MsgBox("testung",TB.c_str());
+//			MsgBox("testung",QString("%1\n%2\n%3\n%4").arg(TA).arg(TB).arg(t1).arg(t2));
 
+			if (t3 > 0)
+			{
+MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
+
+				if (QString(t1) == "opm+") { my_tmp->op_code = byte_code::op_add; } else
+				if (QString(t1) == "opm-") { my_tmp->op_code = byte_code::op_sub; } else
+				if (QString(t1) == "opm*") { my_tmp->op_code = byte_code::op_mul; } else
+				if (QString(t1) == "opm/") { my_tmp->op_code = byte_code::op_div; }
+
+				my_tmp->name = "arith";
+				code.append(my_tmp);
+				return;
+			}
 			if ((TA == "PKc")
 			&& ( TB == "b"))
 			{
@@ -467,6 +482,37 @@ namespace client
 				op("op7",qi::_1) ]
 			)	;
 
+			math_add = char_('+') [ op("opm+",qi::_1,byte_code::op_add) ];
+			math_sub = char_('-') [ op("opm-",qi::_1,byte_code::op_sub) ];
+			math_mul = char_('*') [ op("opm*",qi::_1,byte_code::op_mul) ];
+			math_div = char_('/') [ op("opm/",qi::_1,byte_code::op_div) ];
+
+			symbol_term %=
+				term						[ _val  = qi::_1 ]
+				>> *( (math_add >> term 	[ _val += qi::_1 ] )
+					| (math_sub >> term 	[ _val -= qi::_1 ] )
+					)
+				;
+			term =
+				factor						[ _val  = qi::_1 ]
+				>> *( (math_mul >> factor	[ _val *= qi::_1 ] )
+					| (math_div >> factor	[ _val /= qi::_1 ] )
+					)
+				;
+			factor =
+				(
+					int_
+					[
+						_val  = qi::_1,
+						op("opm",qi::_1,
+						byte_code::op_is_number)
+					]
+				)
+				|
+				( '(' >> symbol_term		[ _val = qi::_1 ] >> ')' )	|
+				( math_add >> factor 		[ _val = qi::_1 ] )			|
+				( math_sub >> factor 		[ _val = qi::_1 ] )
+				;
 
 			symbol_expr %=
 			(
@@ -535,24 +581,19 @@ namespace client
 						)
 						|
 						(
-							(lit("+") | lit("-") | lit("*") | lit("/"))
-							> symbol_expr
+						//	(lit("+") | lit("-") | lit("*") | lit("/"))
+						//	>
+							symbol_term
 						)
 					)
 				)
 				|
 				(
-					((int_ )
-					[	_val   = qi::_1,
-						op("op2",qi::_1)
+					symbol_term
+					[
+						_val   = qi::_1,
+						op("opz",qi::_1,1)
 					]
-					)
-					>> *(
-						((lit("+") | lit("-") | lit("*") | lit("/"))
-						//[ op("op9",qi::_1)  ]
-						)
-						> symbol_expr
-					)
 				)
 			)
 			;
@@ -756,8 +797,8 @@ namespace client
 			qi::on_error<fail>( symsbols, client::error_handler(_4, _3, _2) );
 		}
 
-		qi::rule<Iterator, QString()> any_SB;
-		qi::rule<Iterator, QString()> any_stringSB;
+		qi::rule<Iterator, QString(), Skipper> any_SB;
+		qi::rule<Iterator, QString(), Skipper> any_stringSB;
 
         qi::rule<Iterator, Skipper> assignment_rhs;
         qi::rule<Iterator, Skipper>
@@ -771,13 +812,15 @@ namespace client
 
 		boost::phoenix::function<line_no_struct> line_func;
 
-        qi::rule<Iterator, QString>
+        qi::rule<Iterator, QString(), Skipper>
 		variable,
 		qualified_id,
         symbol_alpha, symbol_alpha_alone,
         symbol_ident;
 
-		qi::rule<Iterator, bool> symbol_false, symbol_true;
+		qi::rule<Iterator, bool, Skipper> symbol_false, symbol_true;
+		qi::rule<Iterator,  int, Skipper> symbol_term, term, factor;
+		qi::rule<Iterator,  int, Skipper> math_add, math_sub, math_mul, math_div;
 
         qi::rule<Iterator, Skipper>
          symsbols, dont_handle_keywords, conditions,
@@ -805,7 +848,7 @@ namespace client
          symbol_def_class_inner,
          symbol_def_class;
 
-         qi::rule<Iterator, Skipper> expression, term, factor;
+         qi::rule<Iterator, Skipper> expression;
          qi::rule<Iterator, Skipper> quoted_string, any_string;
      };
 }
@@ -836,6 +879,8 @@ bool dbase_interpret()
 	int i,a;
 	class my_ops *mptr;
 
+	static int lval = 0;
+
 	QVariant  last_val;
 	byte_code last_op = byte_code::op_birth;
 
@@ -848,6 +893,11 @@ bool dbase_interpret()
 
 		switch (mptr->op_code)
 		{
+			case byte_code::op_add: { MsgBox("last_op","adder"); last_op = byte_code::op_add; continue; } break;
+			case byte_code::op_sub: { last_op = byte_code::op_sub; continue; } break;
+			case byte_code::op_mul: { last_op = byte_code::op_mul; continue; } break;
+			case byte_code::op_div: { last_op = byte_code::op_div; continue; } break;
+
 			case byte_code::op_is_bool:
 			{
 				MsgBox("isbool",
@@ -863,8 +913,17 @@ bool dbase_interpret()
 				QMessageBox::information(0,"isnumber",
 				QString("----> %1").arg(mptr->isValue.toInt()));
 
-				last_op  = byte_code::op_is_number;
-				last_val = mptr->isValue.toInt();
+				int nval = mptr->isValue.toInt();
+
+				if (last_op == byte_code::op_add) lval += nval; else
+				if (last_op == byte_code::op_sub) lval -= nval; else
+				if (last_op == byte_code::op_div) lval /= nval; else
+				if (last_op == byte_code::op_mul) lval *= nval;
+
+				mptr->isValue = lval;
+				last_val	  = lval;
+
+				last_op 	  = byte_code::op_is_number;
 			}	break;
 			case byte_code::op_is_ident:
 			{

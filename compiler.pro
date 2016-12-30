@@ -10,6 +10,8 @@ CONFIG  += release
 
 QT = core gui widgets help network
 
+PWD=$$system(pwd)
+
 TOPDIR=$$PWD
 SRCDIR=$${TOPDIR}/source
 HDRDIR=$${SRCDIR}/includes
@@ -66,7 +68,8 @@ INCLUDEPATH += \
         /usr/include
 
 SOURCES += \
-		$${SRCDIR}/dbase/assistant.cc \
+        $${SRCDIR}/dbase/antifreeze.cc \
+        $${SRCDIR}/dbase/assistant.cc \
         $${SRCDIR}/dbase/main.cc \
         $${SRCDIR}/dbase/mainwindow.cc \
         $${SRCDIR}/dbase/editorgutter.cc \
@@ -94,6 +97,7 @@ SOURCES += \
     source/parser/dbase/type.cc
 
 HEADERS += \
+	$${HDRDIR}/antifreeze.h \
 	$${HDRDIR}/assistant.h \
 	$${HDRDIR}/helplistview.h \
 	$${HDRDIR}/mainwindow.h \
