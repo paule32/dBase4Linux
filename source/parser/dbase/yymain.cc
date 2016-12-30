@@ -296,10 +296,151 @@ namespace client
 
 	QVector<bool>       global_bool;
 
+	// ---------------------
+	// struct forwarders ...
+	// ---------------------
+	struct binary_op;
+	struct unary_op;
+	struct nil { };
+
+	// --------------------------------------
+	// inline memory abstraction of our lang.
+	// --------------------------------------
+	struct expression_ast
+	{
+		typedef
+		boost::variant<
+				  nil
+				, int
+				, double
+				, boost::recursive_wrapper<expression_ast>
+				, boost::recursive_wrapper<binary_op>
+				, boost::recursive_wrapper<unary_op>
+		> type;
+		type expr;
+
+		template <typename Expr>
+		expression_ast(Expr const &expr)
+			: expr(expr)  { }
+
+		expression_ast()  { }
+		
+        expression_ast& operator += (expression_ast const & rhs);
+        expression_ast& operator -= (expression_ast const & rhs);
+        expression_ast& operator *= (expression_ast const & rhs);
+        expression_ast& operator /= (expression_ast const & rhs); 
+	};
+
+	struct binary_op
+	{
+		binary_op(
+			  char op
+			, expression_ast const &left
+			, expression_ast const &right)
+			: op(op)
+			, left(left)
+			, right(right) { }
+
+		char op;
+		expression_ast left;
+		expression_ast right;
+	};
+
+	struct unary_op
+	{
+		unary_op(
+			  char op
+			, expression_ast const &subject)
+			: op(op)
+			, subject(subject) { }
+
+		char op;
+		expression_ast subject;
+	};
+
+    expression_ast& expression_ast::operator += (expression_ast const& rhs)
+    {
+        expr = binary_op('+', expr, rhs);
+        return *this;
+    }
+
+    expression_ast& expression_ast::operator -= (expression_ast const& rhs)
+    {
+        expr = binary_op('-', expr, rhs);
+        return *this;
+    }
+
+    expression_ast& expression_ast::operator *= (expression_ast const& rhs)
+    {
+        expr = binary_op('*', expr, rhs);
+        return *this;
+    }
+
+    expression_ast& expression_ast::operator /= (expression_ast const& rhs)
+    {
+        expr = binary_op('/', expr, rhs);
+        return *this;
+    }
+
+    // We should be using expression_ast::operator-. There's a bug
+    // in phoenix type deduction mechanism that prevents us from
+    // doing so. Phoenix will be switching to BOOST_TYPEOF. In the
+    // meantime, we will use a phoenix::function below:
+    struct negate_expr
+    {
+        template <typename T>
+        struct result { typedef T type; };
+
+        expression_ast operator()(expression_ast & expr) const
+        {
+            return expression_ast(unary_op('-', expr));
+        }
+    };
+    boost::phoenix::function<negate_expr> neg;
+	expression_ast expr;
+
+    // -----------------------
+    // walk throug the AST ...
+    // -----------------------
+    struct ast_print
+    {
+        typedef void result_type;
+
+        void operator()(int const value)
+        {
+MsgBox("00000","11111");
+			cout << "const int = " << value << endl;
+        }
+
+        void operator()(expression_ast const& ast) const
+        {
+MsgBox("111","2222");
+            //if (!(ast.expr.type().name() == std::string("N11dBaseParser3nilE")))
+            //boost::apply_visitor(*this, ast.expr);
+        }
+
+        void operator()(binary_op const& expr) const
+        {
+MsgBox("222","3333");
+            std::cout << "op:" << expr.op << "(";
+            boost::apply_visitor(*this, expr.left.expr);
+            std::cout << ", ";
+            boost::apply_visitor(*this, expr.right.expr);
+            std::cout << ')';
+        }
+
+        void operator()(unary_op const& expr) const
+        {
+MsgBox("3333","4444");
+            std::cout << "op:" << expr.op << "(";
+            boost::apply_visitor(*this, expr.subject.expr);
+            std::cout << ')';
+        }
+	};
+
 
 	int srcLine = 0;		// internal line
     QString last_token;
-
 
 	struct error
 	{
@@ -335,18 +476,33 @@ namespace client
 
 			QString s1;
 			
-			auto my_tmp = new my_ops;
 //			MsgBox("testung",QString("%1\n%2\n%3\n%4").arg(TA).arg(TB).arg(t1).arg(t2));
 
 			if (t3 > 0)
 			{
-MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
+				MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
 
-				if (QString(t1) == "opm+") { my_tmp->op_code = byte_code::op_add; } else
-				if (QString(t1) == "opm-") { my_tmp->op_code = byte_code::op_sub; } else
-				if (QString(t1) == "opm*") { my_tmp->op_code = byte_code::op_mul; } else
-				if (QString(t1) == "opm/") { my_tmp->op_code = byte_code::op_div; }
+				expression_ast rhs;
+				int val = QString("%1").arg(t2).toInt();
 
+				if (TB == QChar('i') && t1 == "opm+") {
+					rhs  += val;
+					expr  = rhs;
+				}	else
+				if (TB == QChar('i') && t1 == "opm-") {
+					rhs  -= val;
+					expr  = rhs;
+				}	else
+				if (TB == QChar('i') && t1 == "opm*") {
+					rhs  *= val;
+					expr  = rhs;
+				}	else
+				if (TB == QChar('i') && t1 == "opm/") {
+					rhs  /= val;
+					expr  = rhs;
+				}
+
+				auto my_tmp = new my_ops;
 				my_tmp->name = "arith";
 				code.append(my_tmp);
 				return;
@@ -357,6 +513,7 @@ MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
 				int vb = QString("%1").arg(t2).toInt();
 				QVariant var = vb;
 
+				auto my_tmp = new my_ops;
 				my_tmp->op_code = byte_code::op_is_bool;
 				my_tmp->isValue = var;
 				my_tmp->name    = "bool";
@@ -365,6 +522,7 @@ MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
 			if ((TA == "PKc")
 			&& ( TB == "i"))
 			{
+				auto my_tmp = new my_ops;
 				my_tmp->op_code = byte_code::op_is_number;
 				my_tmp->isValue = QString("%1").arg(t2).toInt();
 				my_tmp->name    = "int";
@@ -381,6 +539,7 @@ MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
 					break;
 				}
 
+				auto my_tmp = new my_ops;
 				my_tmp->op_code = byte_code::op_is_ident;
 				my_tmp->isValue = s1;
 				my_tmp->name    = s1;
@@ -820,7 +979,7 @@ MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
 
 		qi::rule<Iterator, bool, Skipper> symbol_false, symbol_true;
 		qi::rule<Iterator,  int, Skipper> symbol_term, term, factor;
-		qi::rule<Iterator,  int, Skipper> math_add, math_sub, math_mul, math_div;
+		qi::rule<Iterator,       Skipper> math_add, math_sub, math_mul, math_div;
 
         qi::rule<Iterator, Skipper>
          symsbols, dont_handle_keywords, conditions,
@@ -855,13 +1014,15 @@ MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
 
 bool my_parser(std::string const str)
 {
+	using namespace client;
+
     typedef std::string::const_iterator iterator_t;
 
-    typedef client::dbase_grammar <iterator_t> grammar;
-    typedef client::dbase_skipper <iterator_t> skipper;
+    typedef dbase_grammar <iterator_t> grammar;
+    typedef dbase_skipper <iterator_t> skipper;
 
-    grammar pg;
-    skipper skp;
+    grammar   pg;
+    skipper   skp;
 
     iterator_t iter = str.begin();
     iterator_t end  = str.end();
@@ -956,8 +1117,13 @@ bool parseText(std::string const s, int m)
 		if (r) {
 			if (my_not_error == true) {
 				QString succ = QString("Parsing SUCCESS!\n\nLines: %1").arg((line_no/6)+1);
-				QMessageBox::information(0,"Parser", succ);
-				dbase_interpret();
+				MsgBox("Information",succ);
+
+				ast_print printer;
+				printer(client::expr);
+
+				//dbase_interpret();
+
 				return true ;
 			}
 			else {
