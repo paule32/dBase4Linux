@@ -328,8 +328,13 @@ namespace client
         expression_ast& operator += (expression_ast const & rhs);
         expression_ast& operator -= (expression_ast const & rhs);
         expression_ast& operator *= (expression_ast const & rhs);
-        expression_ast& operator /= (expression_ast const & rhs); 
+        expression_ast& operator /= (expression_ast const & rhs);
 	};
+
+	bool operator == (
+		 const expression_ast& lhs,
+		 const expression_ast& rhs){ return lhs == rhs;
+	}
 
 	struct binary_op
 	{
@@ -358,26 +363,22 @@ namespace client
 		expression_ast subject;
 	};
 
-    expression_ast& expression_ast::operator += (expression_ast const& rhs)
-    {
+    expression_ast& expression_ast::operator += (expression_ast const& rhs) {
         expr = binary_op('+', expr, rhs);
         return *this;
     }
 
-    expression_ast& expression_ast::operator -= (expression_ast const& rhs)
-    {
+    expression_ast& expression_ast::operator -= (expression_ast const& rhs) {
         expr = binary_op('-', expr, rhs);
         return *this;
     }
 
-    expression_ast& expression_ast::operator *= (expression_ast const& rhs)
-    {
+    expression_ast& expression_ast::operator *= (expression_ast const& rhs) {
         expr = binary_op('*', expr, rhs);
         return *this;
     }
 
-    expression_ast& expression_ast::operator /= (expression_ast const& rhs)
-    {
+    expression_ast& expression_ast::operator /= (expression_ast const& rhs) {
         expr = binary_op('/', expr, rhs);
         return *this;
     }
@@ -398,45 +399,6 @@ namespace client
     };
     boost::phoenix::function<negate_expr> neg;
 	expression_ast expr;
-
-    // -----------------------
-    // walk throug the AST ...
-    // -----------------------
-    struct ast_print
-    {
-        typedef void result_type;
-
-        void operator()(int const value)
-        {
-MsgBox("00000","11111");
-			cout << "const int = " << value << endl;
-        }
-
-        void operator()(expression_ast const& ast) const
-        {
-MsgBox("111","2222");
-            //if (!(ast.expr.type().name() == std::string("N11dBaseParser3nilE")))
-            //boost::apply_visitor(*this, ast.expr);
-        }
-
-        void operator()(binary_op const& expr) const
-        {
-MsgBox("222","3333");
-            std::cout << "op:" << expr.op << "(";
-            boost::apply_visitor(*this, expr.left.expr);
-            std::cout << ", ";
-            boost::apply_visitor(*this, expr.right.expr);
-            std::cout << ')';
-        }
-
-        void operator()(unary_op const& expr) const
-        {
-MsgBox("3333","4444");
-            std::cout << "op:" << expr.op << "(";
-            boost::apply_visitor(*this, expr.subject.expr);
-            std::cout << ')';
-        }
-	};
 
 
 	int srcLine = 0;		// internal line
@@ -476,33 +438,40 @@ MsgBox("3333","4444");
 
 			QString s1;
 			
-//			MsgBox("testung",QString("%1\n%2\n%3\n%4").arg(TA).arg(TB).arg(t1).arg(t2));
-
 			if (t3 > 0)
 			{
-				MsgBox("lupter",QString("%1 : %2").arg(t1).arg(t2));
-
-				expression_ast rhs;
-				int val = QString("%1").arg(t2).toInt();
-
-				if (TB == QChar('i') && t1 == "opm+") {
-					rhs  += val;
-					expr  = rhs;
-				}	else
-				if (TB == QChar('i') && t1 == "opm-") {
-					rhs  -= val;
-					expr  = rhs;
-				}	else
-				if (TB == QChar('i') && t1 == "opm*") {
-					rhs  *= val;
-					expr  = rhs;
-				}	else
-				if (TB == QChar('i') && t1 == "opm/") {
-					rhs  /= val;
-					expr  = rhs;
-				}
+				//MsgBox("lupter",QString("%1 : %2\n%3").arg(t1).arg(t2).arg(TB));
 
 				auto my_tmp = new my_ops;
+				static int    val;
+
+				if ((TB == QChar('i')) && (QString(t1) == "opm")) {
+					val  = QString("%1").arg(t2).toInt();
+
+					my_tmp->op_code = byte_code::op_is_number;
+					my_tmp->isValue = val;
+
+					code.append(my_tmp);
+					return;
+				}
+
+				if ((TB == QChar('c')) && (QString(t1) == "opm+")) {
+					my_tmp->op_code = byte_code::op_add;
+					my_tmp->isValue = val;
+				}	else
+				if ((TB == QChar('c')) && (QString(t1) == "opm-")) {
+					my_tmp->op_code = byte_code::op_sub;
+					my_tmp->isValue = val;
+				}	else
+				if ((TB == QChar('c')) && (QString(t1) == "opm*")) {
+					my_tmp->op_code = byte_code::op_mul;
+					my_tmp->isValue = val;
+				}	else
+				if ((TB == QChar('c')) && (QString(t1) == "opm/")) {
+					my_tmp->op_code = byte_code::op_div;
+					my_tmp->isValue = val;
+				}
+
 				my_tmp->name = "arith";
 				code.append(my_tmp);
 				return;
@@ -647,13 +616,13 @@ MsgBox("3333","4444");
 			math_div = char_('/') [ op("opm/",qi::_1,byte_code::op_div) ];
 
 			symbol_term %=
-				term						[ _val  = qi::_1 ]
+				term						[ _val  = qi::_1, op("math",qi::_1,byte_code::op_is_number) ]
 				>> *( (math_add >> term 	[ _val += qi::_1 ] )
 					| (math_sub >> term 	[ _val -= qi::_1 ] )
 					)
 				;
 			term =
-				factor						[ _val  = qi::_1 ]
+				factor						[ _val  = qi::_1, op("math",qi::_1,byte_code::op_is_number) ]
 				>> *( (math_mul >> factor	[ _val *= qi::_1 ] )
 					| (math_div >> factor	[ _val /= qi::_1 ] )
 					)
@@ -668,7 +637,7 @@ MsgBox("3333","4444");
 					]
 				)
 				|
-				( '(' >> symbol_term		[ _val = qi::_1 ] >> ')' )	|
+				( '(' >> symbol_term		[ _val = qi::_1 , op("math",qi::_1,byte_code::op_is_number) ] >> ')' )	|
 				( math_add >> factor 		[ _val = qi::_1 ] )			|
 				( math_sub >> factor 		[ _val = qi::_1 ] )
 				;
@@ -1031,6 +1000,14 @@ bool my_parser(std::string const str)
 	return r ;
 }
 
+namespace client_dbase
+{
+	using namespace  ::client;
+	static int       lval;
+	static QVariant  last_val;
+
+	static byte_code last_op;
+
 // -----------------------------------------------
 // now, it is time to interpret the collection ...
 // -----------------------------------------------
@@ -1040,10 +1017,12 @@ bool dbase_interpret()
 	int i,a;
 	class my_ops *mptr;
 
-	static int lval = 0;
-
-	QVariant  last_val;
-	byte_code last_op = byte_code::op_birth;
+	class _mapser_ {
+	public:
+		byte_code mops;
+		int value;
+	};
+	QStack<_mapser_> calcer;
 
 	std::reverse(code.begin(), code.end());
 	for (i = 0; i < code.count(); ++i)
@@ -1054,10 +1033,10 @@ bool dbase_interpret()
 
 		switch (mptr->op_code)
 		{
-			case byte_code::op_add: { MsgBox("last_op","adder"); last_op = byte_code::op_add; continue; } break;
-			case byte_code::op_sub: { last_op = byte_code::op_sub; continue; } break;
-			case byte_code::op_mul: { last_op = byte_code::op_mul; continue; } break;
-			case byte_code::op_div: { last_op = byte_code::op_div; continue; } break;
+			case byte_code::op_add: { last_op = byte_code::op_add; } break;
+			case byte_code::op_sub: { last_op = byte_code::op_sub; } break;
+			case byte_code::op_mul: { last_op = byte_code::op_mul; } break;
+			case byte_code::op_div: { last_op = byte_code::op_div; } break;
 
 			case byte_code::op_is_bool:
 			{
@@ -1071,30 +1050,139 @@ bool dbase_interpret()
 			}	break;
 			case byte_code::op_is_number:
 			{
-				QMessageBox::information(0,"isnumber",
-				QString("----> %1").arg(mptr->isValue.toInt()));
-
 				int nval = mptr->isValue.toInt();
 
 				if (last_op == byte_code::op_add) lval += nval; else
 				if (last_op == byte_code::op_sub) lval -= nval; else
 				if (last_op == byte_code::op_div) lval /= nval; else
-				if (last_op == byte_code::op_mul) lval *= nval;
+				if (last_op == byte_code::op_mul) lval *= nval; else
+
+				lval = nval;
 
 				mptr->isValue = lval;
 				last_val	  = lval;
 
 				last_op 	  = byte_code::op_is_number;
+
+				MsgBox("isnumber",
+				QString("----> %1").arg(lval));
+
+				auto mapser = new _mapser_;
+				mapser->mops  = last_op;
+				mapser->value = lval;
+				calcer.push(_mapser_);
+
+			}	break;
+			case byte_code::op_is_assign:
+			{
+				imt i;
+				int val = 0;
+
+				int val1;
+				int val2;
+				int val3;
+
+				auto mapser = new _mapser_;
+				for (i = 0; i < mapser.count(); ++i)
+				{
+					mapser = dynamic_cast<_mapser_>(calcer.pop());
+					if (mapser->mops == byte_code::op_add) {
+						val1 = mapser.value;
+						if (mapser.count() > 0) {
+							mapser = dynamic_cast<_mapser_>(calcer.pop());
+							val2 = mapser.value;
+							if (mapser->mops == byte_code::op_add) { val3 = val2 + val1; } else
+							if (mapser->mops == byte_code::op_sub) { val3 = val2 - val1; } else
+							if (mapser->mops == byte_code::op_mul) { val3 = val2 * val1; } else
+							if (mapser->mops == byte_code::op_div) { val3 = val2 / val1; }
+
+							if (mapser.count > 0) {
+								mapser = dynamic_cast<_mapser_>(calcer.pop());
+								val3 = mapser.value;
+								if (mapser.count() > 0) {
+									if (mapser->mops == byte_code::op_add) { val = val3 + val2; } else
+									if (mapser->mops == byte_code::op_sub) { val = val3 - val2; } else
+									if (mapser->mops == byte_code::op_mul) { val = val3 * val2; } else
+									if (mapser->mops == byte_code::op_div) { val = val3 / val2; }
+								}	else val += val3;
+							}	else	 val += val2;
+						}	else		 val += val1;
+					}	else
+					if (mapser->mops == byte_code::op_sub) {
+						val1 = mapser.value;
+						if (mapser.count() > 0) {
+							mapser = dynamic_cast<_mapser_>(calcer.pop());
+							val2 = mapser.value;
+							if (mapser->mops == byte_code::op_add) { val3 = val2 + val1; } else
+							if (mapser->mops == byte_code::op_sub) { val3 = val2 - val1; } else
+							if (mapser->mops == byte_code::op_mul) { val3 = val2 * val1; } else
+							if (mapser->mops == byte_code::op_div) { val3 = val2 / val1; }
+
+							if (mapser.count > 0) {
+								mapser = dynamic_cast<_mapser_>(calcer.pop());
+								val3 = mapser.value;
+								if (mapser.count() > 0) {
+									if (mapser->mops == byte_code::op_add) { val = val3 + val2; } else
+									if (mapser->mops == byte_code::op_sub) { val = val3 - val2; } else
+									if (mapser->mops == byte_code::op_mul) { val = val3 * val2; } else
+									if (mapser->mops == byte_code::op_div) { val = val3 / val2; }
+								}	else val -= val3;
+							}	else	 val -= val2;
+						}	else		 val -= val1;
+					}	else
+					if (mapser->mops == byte_code::op_mul) {
+						val1 = mapser.value;
+						if (mapser.count() > 0) {
+							mapser = dynamic_cast<_mapser_>(calcer.pop());
+							val2 = mapser.value;
+							if (mapser->mops == byte_code::op_add) { val3 = val2 + val1; } else
+							if (mapser->mops == byte_code::op_sub) { val3 = val2 - val1; } else
+							if (mapser->mops == byte_code::op_mul) { val3 = val2 * val1; } else
+							if (mapser->mops == byte_code::op_div) { val3 = val2 / val1; }
+
+							if (mapser.count > 0) {
+								mapser = dynamic_cast<_mapser_>(calcer.pop());
+								val3 = mapser.value;
+								if (mapser.count() > 0) {
+									if (mapser->mops == byte_code::op_add) { val = val3 + val2; } else
+									if (mapser->mops == byte_code::op_sub) { val = val3 - val2; } else
+									if (mapser->mops == byte_code::op_mul) { val = val3 * val2; } else
+									if (mapser->mops == byte_code::op_div) { val = val3 / val2; }
+								}	else val *= val3;
+							}	else	 val *= val2
+						}	else		 val *= val1;
+					}	else
+					if (mapser->mops == byte_code::op_div) {
+						val1 = mapser.value;
+						if (mapser.count() > 0) {
+							mapser = dynamic_cast<_mapser_>(calcer.pop());
+							val2 = mapser.value;
+							if (mapser->mops == byte_code::op_add) { val3 = val2 + val1; } else
+							if (mapser->mops == byte_code::op_sub) { val3 = val2 - val1; } else
+							if (mapser->mops == byte_code::op_mul) { val3 = val2 * val1; } else
+							if (mapser->mops == byte_code::op_div) { val3 = val2 / val1; }
+
+							if (mapser.count > 0) {
+								mapser = dynamic_cast<_mapser_>(calcer.pop());
+								val3 = mapser.value;
+								if (mapser.count() > 0) {
+									if (mapser->mops == byte_code::op_add) { val = val3 + val2; } else
+									if (mapser->mops == byte_code::op_sub) { val = val3 - val2; } else
+									if (mapser->mops == byte_code::op_mul) { val = val3 * val2; } else
+									if (mapser->mops == byte_code::op_div) { val = val3 / val2; }
+								}	else val /= val3;
+							}	else	 val /= val2;
+						}	else		 val /= val1;
+					}
+				}
 			}	break;
 			case byte_code::op_is_ident:
 			{
-				//if (last_val.type() == QVariant::Int)
 				{
-					mptr->isValue = last_val;
-					QMessageBox::information(0,"isident",
+					MsgBox ("isident",
 					QString("--> %1 = %2")
 					.arg(mptr->name)
-					.arg(last_val.toInt()));
+					.arg(lval));
 				}
 			}	break;
 		}
@@ -1102,13 +1190,23 @@ bool dbase_interpret()
 
 	return true;
 }
+}
 
 bool parseText(std::string const s, int m)
 {
 	using namespace client;
+	using namespace client_dbase;
+
+    // -------------------
+	// set values to 0 ...
+	// -------------------
 	line_no      = 1;
+	lval		 = 0;
+	last_val	 = 0;
+
 	global_bool << true << false << true; // fixme: !!!
 	my_not_error = true;
+
 	code.clear();
 
 	bool r = false;
@@ -1119,11 +1217,7 @@ bool parseText(std::string const s, int m)
 				QString succ = QString("Parsing SUCCESS!\n\nLines: %1").arg((line_no/6)+1);
 				MsgBox("Information",succ);
 
-				ast_print printer;
-				printer(client::expr);
-
-				//dbase_interpret();
-
+				client_dbase::dbase_interpret();
 				return true ;
 			}
 			else {
