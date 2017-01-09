@@ -1,6 +1,7 @@
 #include "source/includes/mainwindow.h"
 
 extern bool parseText(std::string const s,int m);
+MyEditor *global_textedit = nullptr;
 
 MyEditor::MyEditor(QWidget *parent)
     : QPlainTextEdit(parent)
@@ -8,6 +9,8 @@ MyEditor::MyEditor(QWidget *parent)
     setObjectName("dBaseEditor");
     setWordWrapMode(QTextOption::NoWrap);
     setAcceptDrops(true);
+
+	global_textedit = this;
 
     gutter = new EditorGutter(this);
     lines  = 1;

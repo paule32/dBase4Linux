@@ -72,4 +72,5 @@ private:
     QTextCharFormat multiLineCommentFormat;
 };
 
+extern MyEditor *global_textedit;
 #endif // EDITORGUTTER_H

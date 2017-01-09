@@ -1,22 +1,43 @@
-#ifndef _ANTIFREEZE_
-#define _ANTIFREEZE_
+#ifndef ANTIFREEZE_H
+#define ANTIFREEZE_H
 
-#include <QThread>
+#define MsgBox(t,txt)  	QMessageBox::information(0,t,txt)
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <iostream>
+#include <exception>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <algorithm>
+#include <cstdlib>
+
+#include <QMessageBox>
+#include <QString>
+#include <QVariant>
 #include <QMutex>
+#include <QThread>
+#include <QTimer>
+#include <QStack>
 
-class MyAntiFreeze: public QThread
+#include <QDebug>
+
+namespace antifreeze
 {
-	Q_OBJECT
-public:
-	explicit MyAntiFreeze(QObject *parent, bool active = false);
-	void run();
+	class MyTimer : public QObject
+	{
+		Q_OBJECT
+	public:
+		MyTimer();
+		QTimer *timer;
+	public slots:
+		void MyTimerSlot();
+	};
 
-	bool Stop;
-	int  steps;
+	void init();
+}
 
-signals:
-    void valueChanged(int);
-};
-
-
-#endif // _ANTIFREEZE_
+#endif

@@ -32,7 +32,7 @@ DEFINES += BUILDDATE=\\\"$$system(date '+%Y-%m-%d')\\\"
 # if you would not use pch - pre-compiled-header, just remove -H block
 #----------------------------------------------------------------------
 QMAKE_CXXFLAGS += \
-	-std=c++14 \
+	-std=c++14 -ggdb \
 	-Wno-unused-parameter \
 	-Wno-unused-variable \
 	-Wno-unused-local-typedefs \

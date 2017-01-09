@@ -1,27 +1,52 @@
-#include "source/includes/mainwindow.h"
 #include "antifreeze.h"
-
-MyAntiFreeze::MyAntiFreeze(QObject *parent, bool b)
-    : QThread(parent)
-    , Stop(b)
+// -----------------------------------------------
+// this ns check all 5 seconds, if the application
+// produce inf memory leaks or simply freeze.
+// Is so, then try to free memory and exit app ...
+// -----------------------------------------------
+namespace antifreeze
 {
-    steps = 1000;
-}
+	using namespace std;
 
-void MyAntiFreeze::run()
-{
-    for (int i = 0; i <= steps; i++)
-    {
-        QMutex mutex;
-        mutex.lock();   // prevent other threads changing stop value
-        if (i > 0 && this->Stop) {
-			if (w->isVisible()) 
-			throw QString("plub");
-			break;
+	int appSize = 0, oldSize = 0;
+	int memDyna = 0, oldDmem = 0;
+
+	// ------------------------------
+	// start of monitoring memory ...
+	// ------------------------------
+	void MyTimer::MyTimerSlot()
+	{
+		qDebug() << "Memory thread initialized...";
+
+		if (oldSize > appSize+10) {
 		}
-        mutex.unlock();
 
-        emit valueChanged(i);
-        this->msleep(11110);
-    }
-}
+		ifstream buffer("/proc/self/statm");
+		buffer  >> appSize
+				>> memDyna;
+
+		long page_size_kb = sysconf(_SC_PAGESIZE) / 1024;
+		double rss = memDyna * page_size_kb;
+
+		qDebug() << "Mem: " << rss;
+	}
+
+	// -----------------------------
+	// simple timer function:
+	// set interval, connect to proc
+	// -----------------------------
+	MyTimer::MyTimer()
+	{
+		timer = new QTimer(this);
+		connect(timer,
+			SIGNAL(timeout()),this,
+			SLOT(MyTimerSlot()));
+
+		timer->start(5000);  // check memory/freeze all 5 seconds
+	}
+
+	// simple doofy
+	void init() { MyTimer *ltimer = new MyTimer; qDebug() << "gesetinhs"; }
+
+}  // namespace antifreeze
+
