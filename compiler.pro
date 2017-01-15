@@ -68,6 +68,7 @@ INCLUDEPATH += \
         /usr/include
 
 SOURCES += \
+		$${SRCDIR}/dbase/singleapplication.cc \
         $${SRCDIR}/dbase/antifreeze.cc \
         $${SRCDIR}/dbase/assistant.cc \
         $${SRCDIR}/dbase/main.cc \
@@ -97,6 +98,8 @@ SOURCES += \
     source/parser/dbase/type.cc
 
 HEADERS += \
+	$${HDRDIR}/mainprocess.h \
+	$${HDRDIR}/singleapplication.h \
 	$${HDRDIR}/antifreeze.h \
 	$${HDRDIR}/assistant.h \
 	$${HDRDIR}/helplistview.h \

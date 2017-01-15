@@ -61,9 +61,6 @@ namespace client
 
 	bool my_not_error = true;
 
-	QString _end_token;
-	double  _end_result;
-
     enum byte_code
     {
 		 op_birth,
@@ -149,11 +146,15 @@ namespace client
  
     class my_ops {
     public:
+		my_ops() {
+			isInit = false;
+		}
 		byte_code op_code;      // type of opcode
 
 		QString   name   ;      // name of variable
         int       what   ;
-		QVariant  value  ; 
+		QVariant  value  ;
+		bool       isInit;
 
         void setTag(int i) { tag = i; }
     private:
@@ -172,32 +173,90 @@ namespace client
 	QVector<bool>       global_bool;
 
 	int math_flag = 0;
+	QString last_math_op;
+
+	QString _end_token  = "";
+	double  _end_result = 0.00;
+
+	struct assign_expr_val  {
+		assign_expr_val() { }
+		void operator()(QString const &t1) const
+		{
+			bool  found = false;
+			int     idx = 0;
+			my_ops *ptr = nullptr;
+
+			_end_token   = t1;
+			_end_result  = 0.00;
+
+			try {
+				if (code.isEmpty())
+				{	ptr = new my_ops;
+					ptr->name  = _end_token ;
+					ptr->value = _end_result;
+					code.append(ptr);
+MsgBox(
+"0000000000000000000000",
+ptr->name
+);
+return;
+				}
+
+				while (!code.isEmpty())
+				{
+					if ((ptr = code.at(++idx)) != nullptr)
+					{
+
+MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end_token));
+						QString s1 = ptr->name ;
+						QString s2 = _end_token;
+
+						if (s1 == s2) {
+							ptr->value  = _end_result;
+							ptr->isInit = true;
+							found		= true;
+							break;
+						}
+					}
+					else break;
+				}
+			}
+			catch (...) {
+				MsgBox("internal Error","ptr memory fail");
+				_pass = false;
+			}
+
+			if (found == false)
+			{	ptr = new my_ops;
+				ptr->name  = _end_token;
+				ptr->value = _end_result;
+				code.append(ptr);
+			}
+
+			MsgBox("Meine Informationenen",QString("Die Variable: %1 wurde init.").arg(_end_token));
+		}
+	};
+	phoenix::function<assign_expr_val> expr_assign_val;
 
 	struct compile_op
     {
 		template <typename T1, typename T2, typename T3>
         void operator()(T1 const &t1, T2 const &t2, T3 const &t3) const
         {
-			QVariant v = t2;
-			double   r = 0.00;
-			if (QString(t1) == QString("initv") && (t3 == 2)) {
-				_end_token   = t2;
-				MsgBox("namser",_end_token);
-			}
+			const double  r = t2;
 
-			if ((QString(typeid(T1).name()) == QString("PKc")) &&
-				(QString(typeid(T2).name()) == QString("d" ))) {
-				r= v.toDouble();
-				if (QString(t1) == QString("math=")) { _val = _end_result  = r; return; } else
-				if (QString(t1) == QString("math+")) { _val = _end_result += r; return; } else
-				if (QString(t1) == QString("math-")) { _val = _end_result -= r; return; } else
-				if (QString(t1) == QString("math*")) { _val = _end_result *= r; return; } else
-				if (QString(t1) == QString("math/")) { _val = _end_result /= r; return; } else
+			if (QString(t1) == QString("math=")) { _val = _end_result  = r; } else
 
-				if (QString(t1) == QString("mathcos")) { _val = _end_result = ::cos(r); return; } else
-				if (QString(t1) == QString("mathsin")) { _val = _end_result = ::sin(r); return; } else
-				if (QString(t1) == QString("mathtan")) { _val = _end_result = ::tan(r); return; }
-			}
+			if (QString(t1) == QString("math+")) { _val = _end_result += r; } else
+			if (QString(t1) == QString("math-")) { _val = _end_result -= r; } else
+			if (QString(t1) == QString("math*")) { _val = _end_result *= r; } else
+			if (QString(t1) == QString("math/")) { _val = _end_result /= r; } else
+
+			if (QString(t1) == QString("mathcos")) { _val = _end_result = ::cos(r); } else
+			if (QString(t1) == QString("mathsin")) { _val = _end_result = ::sin(r); } else
+			if (QString(t1) == QString("mathtan")) { _val = _end_result = ::tan(r); }
+
+			MsgBox("2te Version",QString("Variable: %1 hat den Wert: %2").arg(_end_token).arg(_end_result));
 		}
 	};
 
@@ -367,43 +426,9 @@ namespace client
 	struct math_func_var	{
 		math_func_var() { }
 		double operator()(QString const &t1) const
-		{	QString s1   = _end_token =  t1;
-			bool  found  = false;
-			int   idx    = 0;
-			class my_ops * ptr = nullptr;
+		{	
 
-			try {
-				if (code.isEmpty() == false)
-				{	while (!code.isEmpty())
-					{	ptr = code.at(idx++);
-						if (!strcmp(
-						ptr->name.toStdString().c_str(),
-						s1		 .toStdString().c_str())) {
-						found = true;
-						break;
-						}
-					}
-					if (found == true) {
-						_end_token  = s1;
-						_end_result = ptr->value.toDouble();
-						return _end_result;
-					}	else {
-						ptr = new my_ops;
-						ptr->name   = s1;
-						ptr->what   =  2;
-						ptr->value  = _end_result;
-						code.append(ptr);
-					}
-				}
-			}
-			catch (...) {
-				ptr = new my_ops;
-				ptr->name   = s1;
-				ptr->what   =  2;
-				ptr->value  = _end_result;
-				code.append(ptr);
-			}
-
+			MsgBox("operator Qstringggerreer",t1);
 			return _end_result;
 		}
 	};
@@ -415,39 +440,17 @@ namespace client
 
 	struct str_func_assign  {
 		str_func_assign() { }
-		double operator()(QString const &t1, double const &t2) const
-		{	QString s1  = t1;
-			bool found  = false;
-			int  idx    = -1;
-			my_ops *ptr = nullptr;
+		void operator()(QString const &t1) const
+		{
+			QString s1;
+			if (t1.isEmpty())
+			s1 = _end_token;
 
-			while (!code.isEmpty())
-			{
-				if (code.at(++idx) != nullptr) {
-					ptr = code.at(idx);
-				}
-
-				if (ptr->name == QString(s1)) {
-					found = true;
-					break;
-				}
-			}
-
-			if (found == true) {
-MsgBox("1111111111111111111111111",QString("%1").arg(_end_result));
-				ptr->value  = double(t2);
-				_end_result = double(t2);
-				return        double(t2);
-			}
-			else {
-				my_ops *new_op = new my_ops;
-				new_op->name   = s1;
-				new_op->what   =  1;
-				new_op->value  = t2;
-				code.append(new_op);
-				return t2;
-			}	return _end_result;
-		}
+			s1 = QString("-->%1<---->%2<-----")
+			.arg(_end_result)
+			.arg(s1);
+			MsgBox("operator _assign",s1);
+		}	
 	};
 	// string functions ...
 	phoenix::function<str_func_assign> func_str_assign;
@@ -516,9 +519,9 @@ MsgBox("1111111111111111111111111",QString("%1").arg(_end_result));
 				| ( math_sin >> '(' >> symbol_term >> ')')  [ _val = func_math_sin(_2) ]
 				| ( math_tan >> '(' >> symbol_term >> ')')  [ _val = func_math_tan(_2) ]
 
-				| ( variable [ _val = func_math_var(_1) ])
-					>> *( ('+' >> term	[_val += _1, op("math=",_val,0) ])
-						| ('-' >> term	[_val -= _1, op("math=",_val,0) ])
+				| ( variable [ func_math_var(_1) ])
+					>> *( ('+' >> symbol_term  [ op("math=",_1,1) ])
+						| ('-' >> symbol_term  [ op("math=",_1,2) ])
 						)
                 ;
 
@@ -586,7 +589,7 @@ MsgBox("1111111111111111111111111",QString("%1").arg(_end_result));
             [_val = qi::_1] ));
  
             variable = (qualified_id)
-            [_val = qi::_1 ]
+            [_val = qi::_1, expr_assign_val(qi::_1) ]
             ;
  
  
@@ -598,7 +601,7 @@ MsgBox("1111111111111111111111111",QString("%1").arg(_end_result));
                                 )
                                 |
                                 (
-                                        symbol_term
+                                        symbol_term [ op("mathA",qi::_1,0) ]
                                 )
 								|
                                 (
@@ -777,12 +780,11 @@ MsgBox("1111111111111111111111111",QString("%1").arg(_end_result));
             symbol_string   = (any_stringSB);
             symbol_def_expr =
             (
-                ((variable  [ op("initv",qi::_1,2) ])
+                ((variable [ func_str_assign(qi::_1) ] )
                       - (dont_handle_keywords))
                 >       (lit("=")    )
-                >       (symbol_expr [ _val = func_str_assign(
-						_end_token,
-						_end_result) ] )
+                >       (symbol_expr [
+						func_str_assign(_end_token) ] )
             )
             ;
 
@@ -849,9 +851,10 @@ MsgBox("1111111111111111111111111",QString("%1").arg(_end_result));
         qi::rule<Iterator, Skipper> assignment_rhs;
         qi::rule<Iterator, Skipper>
                         symbol_string,
-                        symbol_expr,
                         symbol_expr2expr
         ;
+
+		qi::rule<Iterator, Skipper> symbol_expr;
  
         boost::phoenix::function<compile_op> op;
 		boost::phoenix::function<error     > my_error;
@@ -931,17 +934,15 @@ bool my_parser(std::string const str)
 	typedef client::dbase_grammar <iterator_t, double, skipper> grammar;
 	grammar pg;
 
-	double  result = 0.0;
-	bool r = client::parse(iter, end, pg, result);
+	bool r = client::parse(iter, end, pg, client::_end_result);
 
-	result = client::_end_result;
+	QVariant v = client::_end_result;
 	if (r == true) {
 		int line = global_textedit->lines;
 		QString succ = QString("Parsing SUCCESS!\nres: %1\nLines: %2").
-		arg(result).
+		arg(v.toString()).
 		arg(line);
 		MsgBox("Information",succ);
-		return false;
 	}	return r;
 }
 
@@ -1004,6 +1005,7 @@ bool parseText(std::string const s, int m)
 		QMessageBox::information(0,"Parser", "Memory Error");
 		return false;
 	}
+
     return r;
 }
 

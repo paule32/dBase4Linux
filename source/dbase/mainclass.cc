@@ -2,6 +2,7 @@
 #include <QEvent>
 #include <QMouseEvent>
 #include "source/includes/mainclass.h"
+#include "mainprocess.h"
 
        class MainWindow *w;
 static class MyMainWindow *wm;
@@ -22,3 +23,10 @@ MyMainClass::MyMainClass() {
     w->addToolBar(Qt::TopToolBarArea, toolBar);*/
     w->showMaximized();
 }
+
+void MyMainClass::on_Exit(int ec, QProcess::ExitStatus)
+{
+	//MainProcess *process = new MainProcess;
+	//process->start();
+}
+

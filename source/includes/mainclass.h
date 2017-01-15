@@ -1,3 +1,6 @@
+#ifndef _MAINCLASS_H_
+#define _MAINCLASS_H_
+
 #include <QObject>
 #include <QAction>
 #include <QtGui>
@@ -15,6 +18,8 @@ class MyMainClass: public QObject
 {     Q_OBJECT
 public:
     MyMainClass();
+public slots:
+	void on_Exit(int ec, QProcess::ExitStatus);
 };
 
 class PushButtonActionWrapper: public QPushButton
@@ -61,3 +66,4 @@ protected:
         delete widget;
     }
 };
+#endif

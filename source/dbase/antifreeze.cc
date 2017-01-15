@@ -37,16 +37,18 @@ namespace antifreeze
 	// -----------------------------
 	MyTimer::MyTimer()
 	{
+#ifdef TIMERS_TESTERS
 		timer = new QTimer(this);
 		connect(timer,
 			SIGNAL(timeout()),this,
 			SLOT(MyTimerSlot()));
 
 		timer->start(5000);  // check memory/freeze all 5 seconds
+#endif
 	}
 
 	// simple doofy
-	void init() { MyTimer *ltimer = new MyTimer; qDebug() << "gesetinhs"; }
+	void init() { /*MyTimer *ltimer = new MyTimer; qDebug() << "gesetinhs"; */ }
 
 }  // namespace antifreeze
 
