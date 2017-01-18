@@ -425,11 +425,52 @@ namespace client
 			.arg(_end_result)
 			.arg(s1);
 			//MsgBox("operator _assign",s1.toLatin1());
-		}	
+		}
 	};
 	// string functions ...
 	phoenix::function<str_func_assign> func_str_assign;
 
+	// -------------------------------------
+	// lhs and rhs values for conditions ...
+	// -------------------------------------
+	QString LHS_variable;
+	QString RHS_variable;
+	int     VAR_condition;
+
+	struct lhs_save_var_ {
+		lhs_save_var_() { }
+		void operator()(QString const &t1) const {
+			LHS_variable = t1;
+		}
+	};
+	struct rhs_save_var_ {
+		rhs_save_var_() { }
+		void operator()(QString const &t1) const {
+			RHS_variable = t1;
+		}
+	};
+	struct lhs_save__ar_ {
+		lhs_save_var_() { }
+		void operator()(double const &t1) const {
+			LHS_variable = t1;
+		}
+	};
+	struct rhs_save__ar_ {
+		rhs_save_var_() { }
+		void operator()(double const &t1) const {
+			RHS_variable = t1;
+		}
+	};
+	struct var_cond_ {
+		var_cond_() { }
+		void operator()(int const &cond) const {
+		}
+	};
+	phoenox::function<var_cond_    > var_cond;
+	phoenix::function<lhs_save_var_> lhs_save_var;
+	phoenix::function<rhs_save_var_> rhs_save_var;
+	phoenix::function<lhs_save__ar_> lhs_save__ar;
+	phoenix::function<rhs_save__ar_> rhs_save__ar;
 
 	template <typename Iterator, typename FPT, typename Skipper = dbase_skipper<Iterator>>
 	struct dbase_grammar : public qi::grammar<Iterator, FPT, Skipper>
@@ -579,22 +620,22 @@ namespace client
                 )
 				|
                 (
-                        lit("[") >> (eol | eoi) > eps[my_error("funkel bunkel")]
+                    lit("[") >> (eol | eoi) > eps[my_error("funkel bunkel")]
                 )
                 |
                 (
-                        ((symbol_true | symbol_false)
-                        [
-                                _val    = qi::_1
-                        ])
+                    ((symbol_true | symbol_false)
+                    [
+                        _val    = qi::_1
+                    ])
                 )
                 |
                 (
-                        symbol_string
-                        >> *(
-                                (lit("+") | lit("-"))
-                                > symbol_expr
-                        )
+                    symbol_string
+                    >> *(
+                            (lit("+") | lit("-"))
+                            > symbol_expr
+                    )
                 )
                 |
                 (
@@ -624,55 +665,35 @@ namespace client
             	)
             ;
 
-            symbol_expr2expr %=
-            (
-                (
-                    (
-                        ((lit("+") | lit("-") | lit("*") | lit("/"))
-                        >
-                        (variable | int_ | double_))
-                    )
-                    |
-                    (
-                        (symbol_true | symbol_false)
-                    )
-                    |
-                    (
-                        (variable | int_ | double_)
-                        >> (
-                                (lit("+") | lit("-") | lit("*") | lit("/"))
-                                > symbol_expr2expr
-                        )
-                    )
-                    |
-                    (
-                        conditions >> (symbol_term)
-                    )
-                )
-            )
-            ;
-
             conditions %=
-            (       lit("==") | lit("<=") |
-                    lit(">=") | lit("=>") |
-                    lit("=<") | lit("!=") |
-                    lit("<" ) | lit(">" )
+            (   (lit("==") [ var_cond(1) ]) | (lit("<=") [ var_cond(5) ]) |
+                (lit(">=") [ var_cond(2) ]) | (lit("=>") [ var_cond(6) ]) |
+                (lit("=<") [ var_cond(3) ]) | (lit("!=") [ var_cond(7) ]) |
+            	(lit("<" ) [ var_cond(4) ]) | (lit(">" ) [ var_cond(8) ])
             )
             ;
 
             expression %=
             (
-                (
-                    (variable >> *(symbol_expr2expr)) |
-                    (((int_) [
-                            _val =   qi::_1
-                    ] ) >> *(symbol_expr2expr))
-                )
-                |
 				(
-                    (symbol_new > variable)    >> (
-                    (conditions > symbol_expr2expr))
-                )
+					(variable [ lhs_save_var(qi::_1) ]) >> condition >>
+					(variable [ rhs_save_var(qi::_1) ])
+				)
+				|
+				(
+					(variable [ lhs_save_var(qi::_1) ]) >> condition >>
+					(real     [ rhs_save__ar(qi::_1) ])
+				)
+				|
+				(
+					(real     [ lhs_save__ar(qi::_1) ]) >> condition >>
+					(variable [ rhs_save_var(qi::_1) ])
+				)
+				|
+				(
+					(real     [ lhs_save__ar(qi::_1) ]) >> condition >>
+					(real     [ rhs_save__ar(qi::_1) ])
+            	)
             )
             ;
 
@@ -692,57 +713,70 @@ namespace client
 
  
 			any_stringSB =
-                (
+            (
+		        (
+	                lexeme[
                         (
-                                lexeme[
-                                        (
-                                                lit("'")
-                                                >> *(
-                                                        ((lit("\\") >> char_) | (char_ - lit("'") ))
-                                                )
-                                                > lit("'")
-                                        )
-                                ]
+                            lit("'")
+                            >> *(
+                                ((lit("\\") >> char_) | (char_ - lit("'") ))
+                            )
+                            > lit("'")
                         )
-                        |
+	                ]
+		        )
+		        |
+		        (
+	                lexeme[
+		                (
+	                        char_("\"")
+	                        >> *(
+                                ((lit('\\') >> char_) | (char_ - lit("\"") ))
+	                        )
+	                        > lit("\"")
+		                )
+	                ]
+		        )
+		        |
+		        (
+	                lexeme[
                         (
-                                lexeme[
-                                        (
-                                                char_("\"")
-                                                >> *(
-                                                        ((lit('\\') >> char_) | (char_ - lit("\"") ))
-                                                )
-                                                > lit("\"")
-                                        )
-                                ]
+                            char_("[")
+                            >> *(
+                                (
+                                    ( char_ - char_("]")   )
+                                    |
+                                    ( char_("\\") >> char_ )
+                                )
+                            )
+                            > char_("]")
                         )
-                        |
-                        (
-                                lexeme[
-                                        (
-                                                char_("[")
-                                                >> *(
-                                                        (
-                                                                ( char_ - char_("]")   )
-                                                                |
-                                                                ( char_("\\") >> char_ )
-                                                        )
-                                                )
-                                                > char_("]")
-                                        )
-                                ]
-                        )
-                        |
-                        (
-                                char_("[") > eps[my_error("Array Error")]
-                        )
-                )
-                ;
+	                ]
+		        )
+		        |
+		        (
+	                char_("[") > eps[my_error("Array Error")]
+		        )
+            )
+            ;
 
 			symbol_def_print =
 			(
+				(symbol_print > symbol_string) |
+				(symbol_print > symbol_expr)
 			)
 			;
+
+            symbol_string   = (any_stringSB);
+            symbol_def_expr =
+            (
+                ((variable [ func_str_assign(qi::_1) ] )
+                  - (dont_handle_keywords))
+                >   (lit("=")    )
+                >   (symbol_expr [
+				    func_str_assign(_end_token) ] )
+            )
+            ;
 
             symbol_def_class =
             (
@@ -753,16 +787,6 @@ namespace client
             )
             ;
 
-            symbol_string   = (any_stringSB);
-            symbol_def_expr =
-            (
-                ((variable [ func_str_assign(qi::_1) ] )
-                      - (dont_handle_keywords))
-                >       (lit("=")    )
-                >       (symbol_expr [
-						func_str_assign(_end_token) ] )
-            )
-            ;
 
             dont_handle_keywords =
             (   symbol_if
