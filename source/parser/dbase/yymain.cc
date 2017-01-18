@@ -105,44 +105,44 @@ namespace client
          op_return       // return from function
      };
 
-        // ------------------------------------
-        // our class for storing stacked data;
-        // pre-process, later as reference for
-        // the DSL ...
-        // ------------------------------------
-        class my_value {                // BigInt wrapper
-        public:
-                my_value() { }
- 
-                double  isDouble;       // as double value
-                QString isString;       // as BigInt string
- 
-                void setTag(int i)      { tag = i; }
-        private:
-                int tag;                        // tag for differ the type
-        };
- 
-        class my_class {
-        public:
-            my_class() { }
+    // ------------------------------------
+    // our class for storing stacked data;
+    // pre-process, later as reference for
+    // the DSL ...
+    // ------------------------------------
+    class my_value {                // BigInt wrapper
+    public:
+        my_value() { }
 
-            QString name;          // class name
-			QVariant parent;
+        double  isDouble;       // as double value
+        QString isString;       // as BigInt string
 
-            void setTag(int i)      { tag = i; }   
-        private:
-		    int tag;                        // tag for difer type
-        };
- 
-        class my_bool {
-        public:
-                my_bool() { }
- 
-                QString cname;          // name of var.
-                bool    status;         // is false/true ?
-        private:
-                int tag;
-        };
+        void setTag(int i)      { tag = i; }
+    private:
+        int tag;                        // tag for differ the type
+    };
+
+    class my_class {
+    public:
+		my_class() { }
+
+		QString name;          // class name
+		QVariant parent;
+
+		void setTag(int i)      { tag = i; }   
+    private:
+	    int tag;                        // tag for difer type
+    };
+
+    class my_bool {
+    public:
+        my_bool() { }
+
+        QString cname;          // name of var.
+        bool    status;         // is false/true ?
+    private:
+        int tag;
+    };
  
     class my_ops {
     public:
@@ -151,9 +151,9 @@ namespace client
 		}
 		byte_code op_code;      // type of opcode
 
-		QString   name   ;      // name of variable
-        int       what   ;
-		QVariant  value  ;
+		QString     name ;      // name of variable
+        int         what ;
+		QVariant    value;
 		bool       isInit;
 
         void setTag(int i) { tag = i; }
@@ -167,73 +167,49 @@ namespace client
     // -----------------------------
     // the "code" holder ...
     // -----------------------------
-	QVector<my_ops*>           code;
-	QVector<my_callstack>  callfunc;
+	QVector<my_ops>           code;
+	QVector<my_ops>::iterator code_iterator;
+
+	QVector<my_callstack> callfunc;
  
 	QVector<bool>       global_bool;
 
 	int math_flag = 0;
 	QString last_math_op;
 
-	QString _end_token  = "";
+	QString _end_token;
 	double  _end_result = 0.00;
 
 	struct assign_expr_val  {
 		assign_expr_val() { }
 		void operator()(QString const &t1) const
 		{
+			QString s1, s2;
 			bool  found = false;
-			int     idx = 0;
-			my_ops *ptr = nullptr;
+			int     idx = -1;
+
+			if (t1.isEmpty()) return;
 
 			_end_token   = t1;
 			_end_result  = 0.00;
 
-			try {
-				if (code.isEmpty())
-				{	ptr = new my_ops;
-					ptr->name  = _end_token ;
-					ptr->value = _end_result;
-					code.append(ptr);
-MsgBox(
-"0000000000000000000000",
-ptr->name
-);
-return;
-				}
+			for (code_iterator  = code.begin();
+				 code_iterator != code.end();
+				 code_iterator++) {
 
-				while (!code.isEmpty())
-				{
-					if ((ptr = code.at(++idx)) != nullptr)
-					{
-
-MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end_token));
-						QString s1 = ptr->name ;
-						QString s2 = _end_token;
-
-						if (s1 == s2) {
-							ptr->value  = _end_result;
-							ptr->isInit = true;
-							found		= true;
-							break;
-						}
-					}
-					else break;
-				}
-			}
-			catch (...) {
-				MsgBox("internal Error","ptr memory fail");
-				_pass = false;
+				 if (_end_token == code_iterator->name)
+				 {
+					 found = true;
+					 break;
+				 }
 			}
 
 			if (found == false)
-			{	ptr = new my_ops;
-				ptr->name  = _end_token;
-				ptr->value = _end_result;
-				code.append(ptr);
+			{	my_ops ptr;
+				ptr.name  = _end_token;
+				ptr.value = _end_result;
+				code << ptr;
 			}
-
-			MsgBox("Meine Informationenen",QString("Die Variable: %1 wurde init.").arg(_end_token));
 		}
 	};
 	phoenix::function<assign_expr_val> expr_assign_val;
@@ -255,8 +231,6 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
 			if (QString(t1) == QString("mathcos")) { _val = _end_result = ::cos(r); } else
 			if (QString(t1) == QString("mathsin")) { _val = _end_result = ::sin(r); } else
 			if (QString(t1) == QString("mathtan")) { _val = _end_result = ::tan(r); }
-
-			MsgBox("2te Version",QString("Variable: %1 hat den Wert: %2").arg(_end_token).arg(_end_result));
 		}
 	};
 
@@ -426,9 +400,10 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
 	struct math_func_var	{
 		math_func_var() { }
 		double operator()(QString const &t1) const
-		{	
+		{
+			//while (!code)
 
-			MsgBox("operator Qstringggerreer",t1);
+			//MsgBox("operator Qstringggerreer",t1);
 			return _end_result;
 		}
 	};
@@ -449,7 +424,7 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
 			s1 = QString("-->%1<---->%2<-----")
 			.arg(_end_result)
 			.arg(s1);
-			MsgBox("operator _assign",s1);
+			//MsgBox("operator _assign",s1.toLatin1());
 		}	
 	};
 	// string functions ...
@@ -483,11 +458,12 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
  
             symsbols %=
             (
-                    (symbol_def_parameter)  |
-                    (symbol_def_local)      |
-                    (symbol_def_expr)       |
-                    (symbol_def_if)         |
-                    (symbol_def_class)
+                (symbol_def_parameter)  |
+                (symbol_def_local)      |
+                (symbol_def_expr)       |
+                (symbol_def_if)         |
+				(symbol_def_print)		|
+                (symbol_def_class)
             )
             ;
 
@@ -572,152 +548,150 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
  
             symbol_alpha %=
             (
-                    (symbol_alpha_alone
-                    [
-                            _val   = qi::_1
-                    ]       )
+                (symbol_alpha_alone
+                [
+                    _val = qi::_1
+            	]   )
             );
             symbol_alpha_alone %= (
-                    (qi::char_("a-zA-Z")    
-                    [ _val =        val(qi::_1) ] ) >> *(qi::char_("a-zA-Z0-9_")
-                    [ _val = _val + val(qi::_1) ] )
+                (qi::char_("a-zA-Z")    
+                [ _val = qi::_1 ] ) >> *(qi::char_("a-zA-Z0-9_")
+                [ _val = qi::_1 ] )
             )
             ;
 
-            qualified_id = ((symbol_alpha
-            [_val = qi::_1] )) >> *('.'  > (symbol_alpha
-            [_val = qi::_1] ));
+
+			qualified_id %= ((qi::alpha | qi::char_("_")) >> *qi::char_("a-zA-Z0-9_"))
+			[_val = qi::_1];
  
             variable = (qualified_id)
             [_val = qi::_1, expr_assign_val(qi::_1) ]
             ;
- 
- 
- 
-                        symbol_expr %=
-                        (
-                                (
-                                        eoi > eps[my_error("Syntaxer !!Error!!!")]
-                                )
-                                |
-                                (
-                                        symbol_term [ op("mathA",qi::_1,0) ]
-                                )
-								|
-                                (
-                                        lit("[") >> (eol | eoi) > eps[my_error("funkel bunkel")]
-                                )
-                                |
-                                (
-                                        ((symbol_true | symbol_false)
-                                        [
-                                                _val    = qi::_1
-                                        ])
-                                )
-                                |
-                                (
-                                        symbol_string
-                                        >> *(
-                                                (lit("+") | lit("-"))
-                                                > symbol_expr
-                                        )
-                                )
-                                |
-                                (
-                                        lit("(") >> *symbol_expr > lit(")")
-                                        >> *(
-                                                        (lit("+") | lit("-") | lit("*") | lit("/"))
-                                                        > symbol_expr
-                                        )
-                                )
-                                |
-                                (
-                                        symbol_new > variable
-                                        >> *(
-                                                (
-                                                        lit("(") >> *(symbol_expr) > lit(")")
-                                                )
-                                                |
-                                                (
-                                                        (
-                                                                lit("+") | lit("-") |
-                                                                lit("*") | lit("/")
-                                                        )
-                                                        >       symbol_expr
-                                                )
-                                        )
-                                )
+  
+            symbol_expr %=
+            (
+        	    (
+                    eoi > eps[my_error("Syntaxer !!Error!!!")]
+                )
+                |
+                (
+                    symbol_term [ op("mathA",qi::_1,0) ]
+                )
+				|
+                (
+                        lit("[") >> (eol | eoi) > eps[my_error("funkel bunkel")]
+                )
+                |
+                (
+                        ((symbol_true | symbol_false)
+                        [
+                                _val    = qi::_1
+                        ])
+                )
+                |
+                (
+                        symbol_string
+                        >> *(
+                                (lit("+") | lit("-"))
+                                > symbol_expr
                         )
-                        ;
- 
-                        symbol_expr2expr %=
-                        (
-                                (
-                                        (
-                                                ((lit("+") | lit("-") | lit("*") | lit("/"))
-                                                >
-                                                (variable | int_ | double_))
-                                        )
-                                        |
-                                        (
-                                                (symbol_true | symbol_false)
-                                                //[
-                                                        //_val = qi::_1,
-                                                        //op("op6", qi::_1)
-                                                //]
-                                        )
-                                        |
-                                        (
-                                                (variable | int_ | double_)
-                                                >> (
-                                                        (lit("+") | lit("-") | lit("*") | lit("/"))
-                                                        > symbol_expr2expr
-                                                )
-                                        )
-                                        |
-                                        (
-                                                conditions >> (symbol_term)
-                                        )
-                                )
+                )
+                |
+                (
+                        lit("(") >> *symbol_expr > lit(")")
+                        >> *(
+                                        (lit("+") | lit("-") | lit("*") | lit("/"))
+                                        > symbol_expr
                         )
-                        ;
- 
-                        conditions %=
-                        (       lit("==") | lit("<=") |
-                                lit(">=") | lit("=>") |
-                                lit("=<") | lit("!=") |
-                                lit("<" ) | lit(">" )
+                )
+                |
+                (
+                    symbol_new > variable
+                    >> *(
+		                    (
+		                            lit("(") >> *(symbol_expr) > lit(")")
+		                    )
+		                    |
+		                    (
+		           	        	(
+		                            lit("+") | lit("-") |
+		                            lit("*") | lit("/")
+		           	    		)
+								>	symbol_expr
+			            	)
+                    	)
+                	)
+            	)
+            ;
+
+            symbol_expr2expr %=
+            (
+                (
+                    (
+                        ((lit("+") | lit("-") | lit("*") | lit("/"))
+                        >
+                        (variable | int_ | double_))
+                    )
+                    |
+                    (
+                        (symbol_true | symbol_false)
+                    )
+                    |
+                    (
+                        (variable | int_ | double_)
+                        >> (
+                                (lit("+") | lit("-") | lit("*") | lit("/"))
+                                > symbol_expr2expr
                         )
-                        ;
+                    )
+                    |
+                    (
+                        conditions >> (symbol_term)
+                    )
+                )
+            )
+            ;
+
+            conditions %=
+            (       lit("==") | lit("<=") |
+                    lit(">=") | lit("=>") |
+                    lit("=<") | lit("!=") |
+                    lit("<" ) | lit(">" )
+            )
+            ;
+
+            expression %=
+            (
+                (
+                    (variable >> *(symbol_expr2expr)) |
+                    (((int_) [
+                            _val =   qi::_1
+                    ] ) >> *(symbol_expr2expr))
+                )
+                |
+				(
+                    (symbol_new > variable)    >> (
+                    (conditions > symbol_expr2expr))
+                )
+            )
+            ;
+
+            symbol_def_if %=
+            (
+                (
+                    (symbol_if >> (lit("(")) > expression >> (lit(")")))
+                    >>  *(  symsbols)
+                    >>  *( (symbol_else)
+                	>>  *(  symsbols)
+						 )
+                    >       symbol_endif
+                )
+            )
+            ;
+
+
  
-                        expression %=
-                        (
-                                (
-                                        (variable >> *(symbol_expr2expr)) |
-                                        (((int_) [
-                                                _val =   qi::_1
-                                        ] ) >> *(symbol_expr2expr))
-                                )
-                                |       (
-                                        (symbol_new > variable)    >> (
-                                        (conditions > symbol_expr2expr))
-                                )
-                        )
-                        ;
- 
-                        symbol_def_if %=
-                        (
-                                (
-                                        (symbol_if >> (lit("(")) > expression >> (lit(")")))
-                                        >>      *(              symsbols)
-                                        >>      *(      (symbol_else)
-                                >>      *(              symsbols) )
-                                        >       symbol_endif
-                                )
-                        )
-                        ;
- 
-        any_stringSB =
+			any_stringSB =
                 (
                         (
                                 lexeme[
@@ -765,15 +739,17 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
                 )
                 ;
 
+			symbol_def_print =
+			(
+			)
+			;
+
             symbol_def_class =
             (
-                    symbol_class > (symbol_alpha) >
-                    symbol_of        > (symbol_alpha )
-    /*              [
-                            op("op3")
-                    ]*/
+                 symbol_class > (symbol_alpha) >
+                 symbol_of    > (symbol_alpha)
             >> *(symsbols) >
-                     symbol_endclass [ _val = 1 ]
+                 symbol_endclass [ _val = 1 ]
             )
             ;
 
@@ -789,30 +765,31 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
             ;
 
             dont_handle_keywords =
-            (       symbol_if
-            |       symbol_endif
-            |       symbol_false
-            |       symbol_true
-            |       symbol_of
-            |       symbol_new
-            |       symbol_else
-            |       symbol_class
-            |       symbol_endclass
-            |       symbol_local
-            |       symbol_return
-            |       symbol_function
-            |       symbol_procedure
-            |       symbol_parameter
+            (   symbol_if
+            |   symbol_endif
+            |   symbol_false
+            |   symbol_true
+            |   symbol_of
+            |   symbol_new
+            |   symbol_else
+            |   symbol_class
+            |   symbol_endclass
+            |   symbol_local
+            |   symbol_return
+            |   symbol_function
+            |   symbol_procedure
+            |   symbol_parameter
             )
             ;
 
             any_SB.name("#string req#");
             any_stringSB.name(" bracket STRING bracket");
 
-            symbol_if                       .name("IF");
+			symbol_print			.name("PRINT");
+            symbol_if               .name("IF");
             symbol_endif            .name("ENDIF");
-            symbol_of                       .name("OF");
-            symbol_new                      .name("NEW");
+            symbol_of               .name("OF");
+            symbol_new              .name("NEW");
             symbol_else             .name("ELSE");
             symbol_true             .name("TRUE");
             symbol_class            .name("CLASS");
@@ -841,6 +818,7 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
             symbol_function  =  lexeme[no_case["function"]];
             symbol_parameter =  lexeme[no_case["parameter"]];
             symbol_procedure =  lexeme[no_case["procedure"]];
+			symbol_print     =  lexeme[no_case["print"]];
 
             qi::on_error<fail>( symsbols, client::error_handler(_4, _3, _2) );
 		}
@@ -848,18 +826,16 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
         qi::rule<Iterator, QString(), Skipper> any_SB;
         qi::rule<Iterator, QString(), Skipper> any_stringSB;
  
-        qi::rule<Iterator, Skipper> assignment_rhs;
         qi::rule<Iterator, Skipper>
-                        symbol_string,
-                        symbol_expr2expr
+            symbol_string,
+            symbol_expr2expr
         ;
 
 		qi::rule<Iterator, Skipper> symbol_expr;
  
-        boost::phoenix::function<compile_op> op;
-		boost::phoenix::function<error     > my_error;
-
-        boost::phoenix::function<line_no_struct> line_func;
+        boost::phoenix::function<compile_op     > op;
+		boost::phoenix::function<error          > my_error;
+        boost::phoenix::function<line_no_struct > line_func;
  
         qi::rule<Iterator, QString(), Skipper>
         variable,
@@ -877,30 +853,32 @@ MsgBox("boooooooxxxxxerer",QString("--->>%1<-->%2<----").arg(ptr->name).arg(_end
 			math_tan;
  
         qi::rule<Iterator, Skipper>
-        symsbols, dont_handle_keywords, conditions, expression,
-         symbol_local,
-         symbol_if, is_function,
-         symbol_else,
-         symbol_endif,
-         symbol_digit,
-         symbol_space,
-         symbol_class,
-         symbol_endclass,
-         symbol_of,
-         symbol_new,
-         symbol_parameter, symbol_def_string,
-         symbol_procedure, symbol_function, symbol_proc_stmts, symbol_return,
+        	symsbols, dont_handle_keywords, conditions, expression,
+			symbol_local,
+			symbol_print,
+			symbol_if, is_function,
+			symbol_else,
+			symbol_endif,
+			symbol_digit,
+			symbol_space,
+			symbol_class,
+			symbol_endclass,
+			symbol_of,
+			symbol_new,
+			symbol_parameter, symbol_def_string,
+			symbol_procedure, symbol_function, symbol_proc_stmts, symbol_return,
  
-         symbol_def_expr,
-         symbol_def_parameter,
-         symbol_def_procedure, symbol_def_function, symbol_def_return,
-         symbol_def_if,
-         symbol_def_if_inner,
-         symbol_def_stmts,
-         symbol_def_stmts_rep,
-         symbol_def_local,
-         symbol_def_class_inner,
-         symbol_def_class;
+			symbol_def_expr,
+			symbol_def_print,
+			symbol_def_parameter,
+			symbol_def_procedure, symbol_def_function, symbol_def_return,
+			symbol_def_if,
+			symbol_def_if_inner,
+			symbol_def_stmts,
+			symbol_def_stmts_rep,
+			symbol_def_local,
+			symbol_def_class_inner,
+			symbol_def_class;
  
          qi::rule<Iterator, Skipper> quoted_string, any_string;
 	};
