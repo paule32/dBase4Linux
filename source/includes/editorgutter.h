@@ -35,6 +35,8 @@ signals:
     void onHelpF1();
 };
 
+extern class MyEditor *global_textedit;
+
 class EditorGutter: public QWidget
 {
     Q_OBJECT
