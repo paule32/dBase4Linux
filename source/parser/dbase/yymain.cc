@@ -16,7 +16,16 @@
 #include <boost/phoenix/object/construct.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <boost/variant/recursive_variant.hpp>
+#include <boost/variant/apply_visitor.hpp>
+#include <boost/variant/get.hpp>
+
+#include <boost/lockfree/stack.hpp>
 #include "antifreeze.h"
+
+#include <iostream>
+#include <string>
+#include <vector>
 
 #include <qstring.h>
 #include "source/includes/editorgutter.h"
@@ -53,6 +62,9 @@ namespace client
     namespace qi = boost::spirit::qi;
     namespace ascii = boost::spirit::ascii;
 
+	boost::lockfree::stack<int> if_stack(2048);
+
+
 	QString st_name1;
 	QString st_name2;
 	QString last;
@@ -86,7 +98,7 @@ namespace client
 		op_is_ident,
 		op_is_number,
 		op_is_arith,
-		op_is_assign_val,
+		op_assign,
 
          op_add_var,     //  add new variable
          op_load,        //  load a variable
@@ -103,7 +115,164 @@ namespace client
          op_stk_adj,     // adjust the stack (for args and locals)
          op_call,        // function call
          op_return       // return from function
-     };
+    };
+
+	struct mini_ast;
+    typedef
+        boost::variant<
+            boost::recursive_wrapper<mini_ast>
+          , std::string
+		  , double
+        >
+    ast_node;
+
+	struct mini_ast {
+		mini_ast() {}
+		mini_ast(mini_ast const & ast) {
+			name   = ast.name;
+			value  = ast.value;
+		}
+
+		enum byte_code bc;
+		double value;
+		std::string name;
+		std::string op_name;
+		std::vector<ast_node> child;
+	};
+
+	struct mini_ast dbase_ast;
+}
+
+namespace client
+{
+	int const tabsize = 4;
+	int roh_int = 0;
+
+    void tab(int indent)
+    {
+        for (int i = 0; i < indent; ++i)
+            std::cout << ' ';
+    }
+
+    struct mini_ast_printer
+    {
+        mini_ast_printer(int indent = 0)
+          : indent(indent)
+        {
+        }
+
+        void operator()(mini_ast const& ast) const;
+		void operator()(double   const& val) const;
+        int indent;
+    };
+
+    struct mini_ast_node_printer : boost::static_visitor<>
+    {
+        mini_ast_node_printer(int indent = 0)
+          : indent(indent)
+        {
+        }
+
+        void operator()(mini_ast const& ast) const {
+            mini_ast_printer(indent+tabsize)(ast);
+		}
+
+		void operator()(double const & val) const  {
+			mini_ast_printer(indent+tabsize)(val); }
+
+        void operator()(std::string const& text) const {
+            tab(indent+tabsize);
+            std::cout << "text: \"" << text << '"' << std::endl;
+        }
+
+        int indent;
+    };
+
+	void mini_ast_printer::operator()(double const & val) const
+	{
+		std::cout << "left : { " << val << " }" << std::endl;
+		std::cout << "right: { " << val << " }" << std::endl;
+	}
+    void mini_ast_printer::operator()(mini_ast const & ast) const
+    {
+        tab(indent);
+		mini_ast mast = ast;
+
+		if (roh_int == 1) {
+			if (mast.op_name.size() < 1)
+				mast.op_name = std::string("assign");
+				mast.name    = ast.name;
+				mast.value   = ast.value;
+
+			std::cout	<< mast.op_name << ": "
+						<< ast.name    << " [ "
+						<< ast.value   << " ] "
+						<< std::endl;
+		}	else
+			std::cout << "root" << std::endl;
+
+        tab(indent);
+        std::cout << '{' << std::endl;
+
+        BOOST_FOREACH(ast_node const& node, ast.child) {
+			roh_int = 1;
+			boost::apply_visitor(mini_ast_node_printer(indent), node);
+		}
+
+        tab(indent);
+        std::cout << '}' << std::endl;
+    }
+
+	mini_ast& vm_add(mini_ast &mast, std::string name, double value)
+	{
+		mini_ast ast;
+		ast.value = value;
+		ast.bc    = byte_code::op_assign;
+		ast.op_name = std::string("assign");
+		ast.name  = name;
+		mast.child.push_back(ast);
+		return mast;
+	}
+
+
+/*
+	struct ast__binary_op;
+	struct ast__node_expr
+	{
+		ast__node_expr *expr;
+		ast__node_expr() { }
+
+		ast__node_expr& operator += (struct ast__node_expr const & rhs);
+		ast__node_expr& operator -= (struct ast__node_expr const & rhs);
+		ast__node_expr& operator *= (struct ast__node_expr const & rhs);
+		ast__node_expr& operator /= (struct ast__node_expr const & rhs);
+	};
+
+	struct ast__binary_op {
+		ast__binary_op() {}
+		char op;
+		struct ast__node_expr left;
+		struct ast__node_expr right;
+	};
+
+	struct ast__node_expr *dast;
+	struct ast__node_expr& ast__node_expr::operator += (struct ast__node_expr const & rhs)
+    {
+		ast__binary_op *abo = new ast__binary_op;
+		abo->op        = '+';
+		abo->left.expr = expr;
+		abo->right     = rhs;
+
+        dast = static_cast<ast__node_expr>(abo);
+        return *this;
+    }
+
+
+	struct ast_print {
+		ast_print(struct ast__node_expr *ast) {
+		}
+	};
+*/
 
     // ------------------------------------
     // our class for storing stacked data;
@@ -216,7 +385,8 @@ namespace client
 			}
 		}
 	};
-	phoenix::function<assign_expr_val> expr_assign_val;
+	phoenix::function<assign_expr_val> expr_assign_val;	
+
 
 	struct compile_op2
 	{
@@ -232,17 +402,11 @@ namespace client
 
 			double res = _end_result;
 			bool found = false;
+			_end_token = n1;
 
-//			_end_result = res;
-			_end_token  = n1;
-
-			MsgBox("typsers",QString("--->%1<-->%2--->%3")
-			.arg(s1)
-			.arg(n1)
-			.arg(res));
-
-MsgBox("---www-----",
-QString("oooooo1: %1\n2: %2").arg(n1).arg(res));
+MsgBox("111",s1);
+MsgBox("222",QString("---> %1").arg(res));
+MsgBox("333",QString("---> %1").arg(n1));
 
 			if (QString("7QString") == s1)
 			{
@@ -265,8 +429,6 @@ QString("oooooo1: %1\n2: %2").arg(n1).arg(res));
 							 found = true;
 							 res   = code_iterator->value.toDouble();
 							 _end_token = code_iterator->name;
-
-							 MsgBox("opratortringggerreer",QString("%1>-->>> %2").arg(t1).arg(res));
 							 break;
 						 }
 					}
@@ -284,8 +446,6 @@ QString("oooooo1: %1\n2: %2").arg(n1).arg(res));
         void operator()(T1 const &t1, T2 const &t2, T3 const &t3) const
         {
 			const double  r = t2;
-			
-			if (QString(t1) == QString("math=")) { _val = _end_result  = r; } else
 
 			if (QString(t1) == QString("math+")) { _val = _end_result += r; } else
 			if (QString(t1) == QString("math-")) { _val = _end_result -= r; } else
@@ -295,6 +455,12 @@ QString("oooooo1: %1\n2: %2").arg(n1).arg(res));
 			if (QString(t1) == QString("mathcos")) { _val = _end_result = ::cos(r); } else
 			if (QString(t1) == QString("mathsin")) { _val = _end_result = ::sin(r); } else
 			if (QString(t1) == QString("mathtan")) { _val = _end_result = ::tan(r); }
+
+			mini_ast dbase_tmp;
+			dbase_tmp.name    = std::string("root");
+			dbase_tmp.op_name = std::string("assign");
+
+			dbase_ast = vm_add(dbase_tmp,_end_token.toStdString(),_end_result);
 		}
 	};
 
@@ -438,6 +604,20 @@ QString("oooooo1: %1\n2: %2").arg(n1).arg(res));
 		}
 	};
 
+	struct token_value_get {
+		typedef void result_type;
+		token_value_get() { }
+		void operator()(QString const &t1, double const &t2) const {
+			QString s1 = t1;
+			if (s1.size()         < 1) s1 = _end_token;
+			if (_end_token.size() < 1) _end_token = s1;
+
+			MsgBox("info",QString("--->%1\n---> %2 : %3").arg(s1).arg(t2).arg(_end_result));
+			_end_result = t2;
+		}
+	};
+	phoenix::function<token_value_get> get_token_value;
+
 	// ----------------------
 	// math ...
 	// ----------------------
@@ -466,8 +646,6 @@ QString("oooooo1: %1\n2: %2").arg(n1).arg(res));
 			bool found = false;
 			double res = 0.00;
 
-MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end_result));
-
 			if (code.isEmpty())
 			{	my_ops ptr;
 				ptr.name  = _end_token;
@@ -483,7 +661,6 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 				 {
 					 found = true;
 					 res = code_iterator->value.toDouble();
-					 MsgBox("oprator Qstringggerreer",QString("->%1>-->>> %2").arg(_end_token).arg(res));
 					 break;
 				 }
 			}
@@ -493,8 +670,6 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 				res = code_iterator->value.toDouble();
 			}
 
-
-			MsgBox("opratorringggerreer",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(res));
 			return res;
 		}
 	};
@@ -511,11 +686,6 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 			QString s1;
 			if (t1.isEmpty())
 			s1 = _end_token;
-
-			s1 = QString("-->%1<---->%2<-----")
-			.arg(_end_result)
-			.arg(s1);
-			//MsgBox("operator _assign",s1.toLatin1());
 		}
 	};
 	// string functions ...
@@ -592,10 +762,17 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 		void operator()(double const &t1, double const &t2) const {
 			if (VAR_condition == 1) {
 				if (t1 == t2) {
-					if (exec_flag == false)
-					exec_flag = true;
-				}	else {
-					exec_flag = false;
+MsgBox("condition","trifft zu");
+					int value;
+					if_stack.pop(value);
+					if (value == 1) { exec_flag = true ; if_stack.push(1); } else
+					if (value == 0) { exec_flag = false; if_stack.push(1); }
+				}
+				else {
+MsgBox("condition","else");
+					int value;
+					if_stack.pop(value);
+					if (value == 1 && exec_flag == true) { exec_flag = true; if_stack.push(1); }
 				}
 			}
 		}
@@ -625,14 +802,14 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 		typedef QString result_type;
 		template <typename T>
 	    QString operator()(T const &t1) const {
-			if (exec_flag) {
-				MsgBox("PRINTERTEXT",string_value);
-				string_value.clear();
-			}
+			if (exec_flag)
+			MsgBox("PRINTERTEXT",t1); //string_value);
+			string_value.clear();
 			return string_value;
 		}
 	};
 	phoenix::function<print_string_> print_string;
+
 
 
 	template <typename Iterator, typename FPT, typename Skipper = dbase_skipper<Iterator>>
@@ -664,7 +841,7 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
             (
                 (symbol_def_parameter)  |
                 (symbol_def_local)      |
-                (symbol_def_expr)       
+                (symbol_def_expr)
             )
             ;
 
@@ -794,7 +971,7 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 				|
 				(
 					(real     [ lhs_save__ar(qi::_1) ]) >> conditions >>
-					(real     [ rhs_save__ar(qi::_1) ])
+					(real     [ rhs_save__ar(qi::_1) ]) [ chk_cond(LHS_double,RHS_double) ]
 				)
             )
             ;
@@ -803,40 +980,14 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 			(
 				(
 				    (symbol_if)  >> lit("(")
-				>   (expression) >> lit(")")
-				>>  (symbol_matched_if >> symbol_else >> symbol_matched_if)
-				)
-				|
-				(
-					*(symsbols)
+				>>  (expression) >> lit(")")
+				>>  (symsbols >> *symbol_else >> symsbols)
+				>>  (symbol_endif)
 				)
 			)
 			;
 
-			symbol_unmatched_if =
-			(
-				(
-				  	  (symbol_if)  >> (lit("("))
-					> (expression) >>  lit(")")		>> symbol_matched_if
-					>> symbol_endif
-				)
-				|
-				(
-					  (symbol_if)  >> (lit("("))
-					> (expression) >>  lit(")")     >> symbol_unmatched_if
-					>> symbol_endif
-				)
-				|
-				(
-					  (symbol_if)  >> (lit("("))
-					> (expression) >>  lit(")")
-					>> symbol_matched_if >> symbol_else >> symbol_unmatched_if
-					>> symbol_endif
-				)
-			)
-			;
-
-            symbol_def_if %= ( symbol_matched_if | symbol_unmatched_if );
+            symbol_def_if %= ( symbol_matched_if );
 
 			any_stringSB %= (
 				any_mystring >> *("+" >> any_mystring) [ _val = _1 ]
@@ -851,12 +1002,6 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
             ;
 
             symbol_string    %= (any_stringSB  [ _val = _1, any_string_value(_1) ] );
-			symbol_def_print  =
-			(
-				((symbol_print) >> (symbol_string [ print_string(qi::_1) ]))
-			)
-			;
-
             symbol_expr %=
             (
 	            symbol_term [ _val = _1 ]
@@ -865,9 +1010,25 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 
             symbol_def_expr =
             (
-                   (variable    [ op2(_1,_end_result) ] )
-				>> lit("=")
-                >> (symbol_expr [ op2(_end_token,_1) ] )
+                (
+					(	(symbol_def_if)
+					)
+					|
+					(	(symbol_print)
+					>>	(
+                			(symbol_string [ print_string(qi::_1) ] )
+		            	)
+					)
+		            |
+					(      (variable >> lit("=")
+		        		>>  symbol_expr)
+							[
+								get_token_value(_1,_2),
+								op2(_1,_2),
+								get_token_value(_end_token,_2)
+							]
+		            )
+				)
             )
             ;
 
@@ -1019,6 +1180,9 @@ MsgBox("opratorr",QString("->%1 : %2>-->>> %3").arg(t1).arg(_end_token).arg(_end
 	{
 		typedef dbase_skipper <Iterator> skipper;
 		skipper skips;
+
+		if_stack.push(1);
+
 		bool r =
 		boost::spirit::qi::phrase_parse(
 		   iter, end, g, skips, result);
@@ -1038,6 +1202,8 @@ bool my_parser(std::string const str)
 
 	typedef client::dbase_skipper <iterator_t> skipper;
 	typedef client::dbase_grammar <iterator_t, double, skipper> grammar;
+
+	skipper sk;
 	grammar pg;
 
 	bool r = client::parse(iter, end, pg, client::_end_result);
@@ -1049,14 +1215,16 @@ bool my_parser(std::string const str)
 		arg(v.toString()).
 		arg(line);
 		MsgBox("Information",succ);
+
+//		client::mini_ast_printer ast;
+//		ast(client::dbase_ast);
+
 	}	return r;
 }
 
 bool parseText(std::string const s, int m)
 {
 	using namespace client;
-
-	antifreeze::init();
 
     // -------------------
 	// set values to 0 ...
