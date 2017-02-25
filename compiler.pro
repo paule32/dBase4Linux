@@ -52,7 +52,7 @@ QMAKE_CXXFLAGS += \
     -I$${TOPDIR}. -I$${SRCDIR} -I$${SRCDIR}/includes \
     -D__BYTE_ORDER=__LITTLE_ENDIAN \
     -DQT_DEPRECATED \
-    -DQT_DISABLE_DEPRECATED_BEFORE
+    -DQT_DISABLE_DEPRECATED_BEFORE -D_GLIBCXX_USE_CXX11_ABI=0
 
 dBaseHelp.target     = all
 dBaseHelp.commands   = @./source/tools/html2qch.sh
@@ -177,4 +177,6 @@ DISTFILES += \
     ../media/sdb1/e-learning/mov/speech/doc/notizen.tex
 
 LIBS += -L"/usr/local/lib64" -L/srv/Projekte/dbase/lib -lstdc++
-LIBS += -lmod_dbase
+LIBS += -lboost_system
+
+#LIBS += -lmod_dbase

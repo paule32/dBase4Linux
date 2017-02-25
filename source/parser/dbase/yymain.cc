@@ -1,20 +1,18 @@
 #define BOOST_SPIRIT_DEBUG
 #define BOOST_SPIRIT_ACTIONS_ALLOW_ATTR_COMPAT
 
-#include <boost/config/warning_disable.hpp>
-#include <boost/spirit/include/qi.hpp>
-
 #include <math.h>
 
+#include <boost/config/warning_disable.hpp>
+#include <boost/spirit/include/classic.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
 #include <boost/spirit/include/phoenix_fusion.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
-#include <boost/spirit/include/phoenix_object.hpp>
-#include <boost/spirit/include/phoenix_container.hpp>
-#include <boost/spirit/include/phoenix_statement.hpp>
+#include <boost/spirit/include/qi.hpp>
 #include <boost/phoenix/object/construct.hpp>
-#include <boost/lexical_cast.hpp>
+#include <boost/ref.hpp>
+#include <boost/phoenix.hpp>
 
 #include <boost/variant/recursive_variant.hpp>
 #include <boost/variant/apply_visitor.hpp>
@@ -31,6 +29,7 @@
 #include "source/includes/editorgutter.h"
 
 using namespace std;
+using namespace boost::phoenix;
 
 using boost::phoenix::function;
 using boost::phoenix::ref;
@@ -38,6 +37,9 @@ using boost::phoenix::size;
 
 using namespace boost::spirit;
 using namespace boost::spirit::qi;
+
+namespace phx = boost::phoenix;
+namespace ph  = boost::phoenix::placeholders;
 
 namespace boost { namespace spirit { namespace traits
 {
@@ -54,6 +56,14 @@ namespace boost { namespace spirit { namespace traits
     };
 }}}
 
+/*
+namespace boost::phoenix::placeholders {
+    expression::argument<1>::type my_arg1 = double;
+    expression::argument<2>::type my_arg2 = double;
+    expression::argument<3>::type my_arg3 = double;
+}
+*/
+
 namespace client
 {
     namespace fusion = boost::fusion;
@@ -62,7 +72,8 @@ namespace client
     namespace qi = boost::spirit::qi;
     namespace ascii = boost::spirit::ascii;
 
-	boost::lockfree::stack<int> if_stack(2048);
+	int  if_depth  = 0;
+	bool exec_flag = true;
 
 
 	QString st_name1;
@@ -73,6 +84,7 @@ namespace client
 
 	bool my_not_error = true;
 
+    
     enum byte_code
     {
 		 op_birth,
@@ -199,10 +211,12 @@ namespace client
 		mini_ast mast = ast;
 
 		if (roh_int == 1) {
-			if (mast.op_name.size() < 1)
+			if (mast.op_name.size() < 1) {
 				mast.op_name = std::string("assign");
-				mast.name    = ast.name;
-				mast.value   = ast.value;
+			}
+				
+			mast.name    = ast.name;
+			mast.value   = ast.value;
 
 			std::cout	<< mast.op_name << ": "
 						<< ast.name    << " [ "
@@ -404,10 +418,6 @@ namespace client
 			bool found = false;
 			_end_token = n1;
 
-MsgBox("111",s1);
-MsgBox("222",QString("---> %1").arg(res));
-MsgBox("333",QString("---> %1").arg(n1));
-
 			if (QString("7QString") == s1)
 			{
 				if ((QString("d") == s2)
@@ -576,7 +586,7 @@ MsgBox("333",QString("---> %1").arg(n1));
 		}
 
 		char c;
-		rule<Iterator> my_skip;
+		qi::rule<Iterator> my_skip;
 		phoenix::function<line_no_struct> line_func;
 	};
 
@@ -691,101 +701,7 @@ MsgBox("333",QString("---> %1").arg(n1));
 	// string functions ...
 	phoenix::function<str_func_assign> func_str_assign;
 
-	// -------------------------------------
-	// lhs and rhs values for conditions ...
-	// -------------------------------------
-	QString LHS_variable;
-	QString RHS_variable;
-
-	double  LHS_double;
-	double	RHS_double;
-
-	bool	exec_flag = true;
-
-	int     VAR_condition;
-	int     VAR_type1;
-	int     VAR_type2;
-
 	QString string_value;
-
-	struct lhs_save_var_ {
-		typedef void result_type;
-		lhs_save_var_() { }
-		void operator()(QString const &t1) const {
-			LHS_variable = t1;
-			VAR_type1    =  1;
-		}
-		void operator()(double const &t1) const {
-			LHS_double = t1;
-		}
-	};
-	struct rhs_save_var_ {
-		typedef void result_type;
-		rhs_save_var_() { }
-		void operator()(QString const &t1) const {
-			RHS_variable = t1;
-			VAR_type2    =  2;
-		}
-	};
-	struct lhs_save__ar_ {
-		typedef void result_type;
-		lhs_save__ar_() { }
-		void operator()(double const &t1) const {
-			LHS_double = t1;
-			VAR_type1  =  3;
-		}
-	};
-	struct rhs_save__ar_ {
-		typedef void result_type;
-		rhs_save__ar_() { }
-		void operator()(double const &t1) const {
-			RHS_double = t1;
-			VAR_type2  =  4;
-		}
-	};
-	struct var_cond_ {
-		typedef void result_type;
-		var_cond_() { }
-		void operator()(int const &cond) const {
-			VAR_condition = cond;
-		}
-	};
-	struct chk_cond_ {
-		typedef void result_type;
-		chk_cond_() { }
-		void operator()(QString const &t1, QString const &t2) const {
-		}
-		void operator()(QString const &t1, double const &t2) const {
-		}
-		void operator()(double const &t1, QString const &t2) const {
-		}
-		void operator()(double const &t1, double const &t2) const {
-			if (VAR_condition == 1) {
-				if (t1 == t2) {
-MsgBox("condition","trifft zu");
-					int value;
-					if_stack.pop(value);
-					if (value == 1) { exec_flag = true ; if_stack.push(1); } else
-					if (value == 0) { exec_flag = false; if_stack.push(1); }
-				}
-				else {
-MsgBox("condition","else");
-					int value;
-					if_stack.pop(value);
-					if (value == 1 && exec_flag == true) { exec_flag = true; if_stack.push(1); }
-				}
-			}
-		}
-	};
-	phoenix::function<var_cond_    > var_cond;
-	phoenix::function<chk_cond_    > chk_cond;
-
-	phoenix::function<lhs_save_var_> lhs_save_var;
-	phoenix::function<rhs_save_var_> rhs_save_var;
-
-	phoenix::function<lhs_save__ar_> lhs_save__ar;
-	phoenix::function<rhs_save__ar_> rhs_save__ar;
-
 
 	struct any_string_value_ {
 		typedef QChar result_type;
@@ -810,8 +726,60 @@ MsgBox("condition","else");
 	};
 	phoenix::function<print_string_> print_string;
 
+    //
+    struct expr_condition {
+        double lhs;
+        double rhs;
+    };
+    QStack<bool> if_level;
 
-
+    struct expr_condition exprcond;
+    
+    struct lhs_symbol_expr_ {
+        template <typename T>
+	    void operator()(T const &t1) const {
+            exprcond.lhs = t1;
+        }
+    };
+    struct rhs_symbol_expr_ {
+        template <typename T>
+	    void operator()(T const &t1) const {
+            exprcond.rhs = t1;
+        }
+    };    
+    struct check_if_
+    {
+        typedef void result_type;
+        void operator()(int m) const
+        {
+            if (if_level.isEmpty()) {
+                if_level.push(true);
+                exec_flag = true;
+            }
+                        
+	        if (exprcond.lhs == exprcond.rhs) {
+                if_level.pop();
+                if_level.push(true);
+                exec_flag = true;
+	        }
+	        else {
+                if_level.pop();
+                if_level.push(false);
+                exec_flag = false;
+	        }
+	        
+	        if (m == 1) {
+	            if (if_level.top() == false) {
+	                exec_flag = true;
+	            }
+	        }
+        }
+    };
+    phoenix::function<check_if_> check_if;
+    phoenix::function<lhs_symbol_expr_> lhs_set_expr;
+    phoenix::function<rhs_symbol_expr_> rhs_set_expr;
+    //
+    
 	template <typename Iterator, typename FPT, typename Skipper = dbase_skipper<Iterator>>
 	struct dbase_grammar : public qi::grammar<Iterator, FPT, Skipper>
 	{
@@ -834,7 +802,7 @@ MsgBox("condition","else");
  
             using qi::on_error;
             using qi::fail;
- 
+
             start %= * symsbols;
  
             symsbols %=
@@ -944,50 +912,28 @@ MsgBox("condition","else");
 
             variable = (qualified_id [_val = qi::_1 ] );
 
-            conditions %=
-            (   (lit("==") [ var_cond(1) ]) | (lit("<=") [ var_cond(5) ]) |
-                (lit(">=") [ var_cond(2) ]) | (lit("=>") [ var_cond(6) ]) |
-                (lit("=<") [ var_cond(3) ]) | (lit("!=") [ var_cond(7) ]) |
-            	(lit("<" ) [ var_cond(4) ]) | (lit(">" ) [ var_cond(8) ])
-            )
-            ;
 
-            expression =
-            (
-				( 
-					(variable [ lhs_save_var(qi::_1) ]) >> conditions >>
-					(variable [ rhs_save_var(qi::_1) ])
-				)
-				|
-				(
-					(variable [ lhs_save_var(qi::_1) ]) >> conditions >>
-					(real     [ rhs_save__ar(qi::_1) ])
-				)
-				|
-				(
-					(real     [ lhs_save__ar(qi::_1) ]) >> conditions >>
-					(variable [ rhs_save_var(qi::_1) ])
-				)
-				|
-				(
-					(real     [ lhs_save__ar(qi::_1) ]) >> conditions >>
-					(real     [ rhs_save__ar(qi::_1) ]) [ chk_cond(LHS_double,RHS_double) ]
-				)
-            )
-            ;
-
-			symbol_matched_if =
+            lhs_symbol_expr %= symbol_expr [ _val = _1];
+            rhs_symbol_expr %= symbol_expr [ _val = _1];
+            
+			symbol_matched_if %=
 			(
-				(
-				    (symbol_if)  >> lit("(")
-				>>  (expression) >> lit(")")
-				>>  (symsbols >> *symbol_else >> symsbols)
-				>>  (symbol_endif)
-				)
+			    (lhs_symbol_expr >> "==" >> rhs_symbol_expr)
+			    [
+			        lhs_set_expr(phx::construct<double>(qi::_1)),
+			        rhs_set_expr(phx::construct<double>(qi::_2)),
+			        check_if(0)
+			    ]
 			)
 			;
 
-            symbol_def_if %= ( symbol_matched_if );
+            symbol_def_if %=
+            (
+                  symbol_if   >> symbol_matched_if
+                              >> *(symsbols)  >>
+                *(symbol_else >> *(symsbols)) >> symbol_endif [ check_if(1) ]
+            )
+            ;
 
 			any_stringSB %= (
 				any_mystring >> *("+" >> any_mystring) [ _val = _1 ]
@@ -1113,7 +1059,10 @@ MsgBox("condition","else");
         ;
 
 		qi::rule<Iterator, double, Skipper>
-			symbol_expr;
+			symbol_expr,
+			lhs_symbol_expr,
+			rhs_symbol_expr
+	    ;
  
         boost::phoenix::function<compile_op     > op;
 		boost::phoenix::function<error          > my_error;
@@ -1139,7 +1088,10 @@ MsgBox("condition","else");
  
         qi::rule<Iterator, Skipper>
 			symbol_unmatched_if,
-			symbol_matched_if,
+			symbol_matched_if
+		;
+
+        qi::rule<Iterator, Skipper>
 
         	symsbols, dont_handle_keywords, conditions,
 			symbol_local,
@@ -1181,8 +1133,6 @@ MsgBox("condition","else");
 		typedef dbase_skipper <Iterator> skipper;
 		skipper skips;
 
-		if_stack.push(1);
-
 		bool r =
 		boost::spirit::qi::phrase_parse(
 		   iter, end, g, skips, result);
@@ -1222,7 +1172,7 @@ bool my_parser(std::string const str)
 	}	return r;
 }
 
-bool parseText(std::string const s, int m)
+bool parseText(std::string s)
 {
 	using namespace client;
 
@@ -1235,6 +1185,9 @@ bool parseText(std::string const s, int m)
 
 	code.clear();
     code.resize(0);
+    
+    // if conditions ...
+    if_level.clear();
 
     bool r = false;
 	try {

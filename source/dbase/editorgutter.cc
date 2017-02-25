@@ -1,6 +1,6 @@
 #include "source/includes/mainwindow.h"
 
-extern bool parseText(std::string const s,int m);
+extern bool parseText(std::string s);
 MyEditor *global_textedit = nullptr;
 
 MyEditor::MyEditor(QWidget *parent)
@@ -51,8 +51,7 @@ void MyEditor::ShowContextMenu(const QPoint& pos) // this is a slot
         parseText(std::string(
                     w->ui->editorWidget
                    ->document()
-                   ->toPlainText().toStdString()),
-        0);
+                   ->toPlainText().toStdString()));
     }  else
     if (selectedItem->text() == QString("Insert template ..."))
     {
@@ -131,7 +130,7 @@ void MyEditor::on_parseText()
 {
     std::string str;
     str = document()->toPlainText().toStdString();
-    parseText(str,0);
+    parseText(str);
 }
 
 void MyEditor::on_dockHelpOpen() {
