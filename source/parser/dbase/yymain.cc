@@ -750,24 +750,40 @@ namespace client
     struct check_if_
     {
         typedef void result_type;
-        void operator()(int m) const
+        void operator()(std::string const &str, int m) const
         {
+            static int    _else_ = 0;
+            if (m == 2) { _else_ = 1; }
+            
             if (if_level.isEmpty()) {
                 if_level.push(true);
                 exec_flag = true;
             }
-                        
+            
 	        if (exprcond.lhs == exprcond.rhs) {
                 if_level.pop();
-                if_level.push(true);
-                exec_flag = true;
+                
+                if (!_else_) {
+                    if_level.push(true);
+                    exec_flag = true;
+                }   else {
+                    if_level.push(false);
+                    exec_flag = false;
+                }
 	        }
 	        else {
                 if_level.pop();
-                if_level.push(false);
-                exec_flag = false;
+                
+                if (!_else_) {
+                    if_level.push(false);
+                    exec_flag = false;
+                }   else {
+                    if_level.push(true);
+                    exec_flag = true;
+                }
 	        }
-	        
+
+            _else_ = 0;	        
 	        if (m == 1) {
 	            if (if_level.top() == false) {
 	                exec_flag = true;
@@ -922,16 +938,30 @@ namespace client
 			    [
 			        lhs_set_expr(phx::construct<double>(qi::_1)),
 			        rhs_set_expr(phx::construct<double>(qi::_2)),
-			        check_if(0)
+			        
+			        check_if(std::string("=="),0)
 			    ]
 			)
 			;
 
             symbol_def_if %=
             (
-                  symbol_if   >> symbol_matched_if
-                              >> *(symsbols)  >>
-                *(symbol_else >> *(symsbols)) >> symbol_endif [ check_if(1) ]
+                symbol_if >> symbol_matched_if
+                          >> *(symsbols)  >>
+                symbol_endif
+                [
+                    check_if(std::string(""),1)
+                ]
+            )
+            ;
+            
+            symbol_def_else %=
+            (
+                (symbol_else)
+                [
+                    check_if(std::string(""),2)
+                    
+                ]
             )
             ;
 
@@ -959,6 +989,7 @@ namespace client
                 (
 					(	(symbol_def_if)
 					)
+					|   (symbol_def_else)
 					|
 					(	(symbol_print)
 					>>	(
@@ -1108,6 +1139,7 @@ namespace client
 			symbol_parameter, symbol_def_string,
 			symbol_procedure, symbol_function, symbol_proc_stmts, symbol_return,
  
+            symbol_def_else,
 			symbol_def_expr,
 			symbol_def_print,
 			symbol_def_parameter,
