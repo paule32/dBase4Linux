@@ -26,6 +26,7 @@
 #include <vector>
 
 #include <qstring.h>
+#include <QVector>
 #include "source/includes/editorgutter.h"
 
 using namespace std;
@@ -56,14 +57,6 @@ namespace boost { namespace spirit { namespace traits
     };
 }}}
 
-/*
-namespace boost::phoenix::placeholders {
-    expression::argument<1>::type my_arg1 = double;
-    expression::argument<2>::type my_arg2 = double;
-    expression::argument<3>::type my_arg3 = double;
-}
-*/
-
 namespace client
 {
     namespace fusion = boost::fusion;
@@ -83,7 +76,7 @@ namespace client
 	QMutex mutex;
 
 	bool my_not_error = true;
-
+    bool isLastClass = false;
     
     enum byte_code
     {
@@ -248,46 +241,6 @@ namespace client
 		return mast;
 	}
 
-
-/*
-	struct ast__binary_op;
-	struct ast__node_expr
-	{
-		ast__node_expr *expr;
-		ast__node_expr() { }
-
-		ast__node_expr& operator += (struct ast__node_expr const & rhs);
-		ast__node_expr& operator -= (struct ast__node_expr const & rhs);
-		ast__node_expr& operator *= (struct ast__node_expr const & rhs);
-		ast__node_expr& operator /= (struct ast__node_expr const & rhs);
-	};
-
-	struct ast__binary_op {
-		ast__binary_op() {}
-		char op;
-		struct ast__node_expr left;
-		struct ast__node_expr right;
-	};
-
-	struct ast__node_expr *dast;
-	struct ast__node_expr& ast__node_expr::operator += (struct ast__node_expr const & rhs)
-    {
-		ast__binary_op *abo = new ast__binary_op;
-		abo->op        = '+';
-		abo->left.expr = expr;
-		abo->right     = rhs;
-
-        dast = static_cast<ast__node_expr>(abo);
-        return *this;
-    }
-
-
-	struct ast_print {
-		ast_print(struct ast__node_expr *ast) {
-		}
-	};
-*/
-
     // ------------------------------------
     // our class for storing stacked data;
     // pre-process, later as reference for
@@ -327,6 +280,10 @@ namespace client
         int tag;
     };
  
+const int whatIsClass     = 2;
+const int whatIsLocal     = 3;
+const int whatIsParameter = 4;
+
     class my_ops {
     public:
 		my_ops() {
@@ -509,7 +466,7 @@ namespace client
          void operator()(
              info const& what
            , Iterator err_pos, Iterator last) const
-	{
+        {
 			my_not_error = false;
 
              std::stringstream ss;
@@ -522,9 +479,9 @@ namespace client
              ;
              std::cout << ss.str();
              QMessageBox::information(0,"Parser", ss.str().c_str());
-         }
-     };
-     boost::phoenix::function<client::error_handler_skip_> const error_handler_skip = client::error_handler_skip_();
+        }
+    };
+    boost::phoenix::function<client::error_handler_skip_> const error_handler_skip = client::error_handler_skip_();
 
 	// ----------------------------------------------
 	// little struct, that handles the new-lines ...
@@ -622,8 +579,10 @@ namespace client
 			if (s1.size()         < 1) s1 = _end_token;
 			if (_end_token.size() < 1) _end_token = s1;
 
-			MsgBox("info",QString("--->%1\n---> %2 : %3").arg(s1).arg(t2).arg(_end_result));
-			_end_result = t2;
+            if (isLastClass == false) {
+			    MsgBox("info",QString("--->%1\n---> %2 : %3").arg(s1).arg(t2).arg(_end_result));
+			    _end_result = t2;
+			}
 		}
 	};
 	phoenix::function<token_value_get> get_token_value;
@@ -636,10 +595,10 @@ namespace client
 		double operator()(T const &t) const {
 			return ::cos(t);
 		}
-	};
-	struct math_func_sin	{
+    };
+    struct math_func_sin {
 		template <typename T>
-		double operator()(T const &t) const {
+		double operator()(T const &t)  const {
 			return ::sin(t);
 		}
 	};
@@ -701,6 +660,13 @@ namespace client
 	// string functions ...
 	phoenix::function<str_func_assign> func_str_assign;
 
+    QString code_str;
+    QString mem_str;
+    int code_pos = 0;
+    
+    int     lab_count = 1;
+    int     ife_count = 1;
+
 	QString string_value;
 
 	struct any_string_value_ {
@@ -714,87 +680,254 @@ namespace client
 	};
 	boost::phoenix::function<any_string_value_> any_string_value;
 
+int if_occur = 0;
 	struct print_string_ {
 		typedef QString result_type;
 		template <typename T>
-	    QString operator()(T const &t1) const {
-			if (exec_flag)
-			MsgBox("PRINTERTEXT",t1); //string_value);
-			string_value.clear();
-			return string_value;
+	    QString operator()(T const &t1) const
+	    {
+	        mem_str.append(
+	            QString("mem_%1 = \"%2\"\n")
+	                .arg(lab_count++)
+	                .arg(t1));
+	                
+	        code_str.append(
+	            QString("push LC%1\n").arg(lab_count-1) +
+	            QString("call print\n"));
+
+            code_pos += 1;	        	            
+			return t1;
 		}
 	};
 	phoenix::function<print_string_> print_string;
 
     //
     struct expr_condition {
-        double lhs;
-        double rhs;
-    };
-    QStack<bool> if_level;
+        QString op;
+        bool exec_flag;
 
-    struct expr_condition exprcond;
+        QVariant lhs; int lmem;
+        QVariant rhs; int rmem;
+    };
     
+    struct expr_condition exprcond;
     struct lhs_symbol_expr_ {
         template <typename T>
 	    void operator()(T const &t1) const {
             exprcond.lhs = t1;
+            exprcond.lmem++;
         }
     };
     struct rhs_symbol_expr_ {
         template <typename T>
 	    void operator()(T const &t1) const {
             exprcond.rhs = t1;
-        }
-    };    
-    struct check_if_
-    {
-        typedef void result_type;
-        void operator()(std::string const &str, int m) const
-        {
-            static int    _else_ = 0;
-            if (m == 2) { _else_ = 1; }
-            
-            if (if_level.isEmpty()) {
-                if_level.push(true);
-                exec_flag = true;
-            }
-            
-	        if (exprcond.lhs == exprcond.rhs) {
-                if_level.pop();
-                
-                if (!_else_) {
-                    if_level.push(true);
-                    exec_flag = true;
-                }   else {
-                    if_level.push(false);
-                    exec_flag = false;
-                }
-	        }
-	        else {
-                if_level.pop();
-                
-                if (!_else_) {
-                    if_level.push(false);
-                    exec_flag = false;
-                }   else {
-                    if_level.push(true);
-                    exec_flag = true;
-                }
-	        }
-
-            _else_ = 0;	        
-	        if (m == 1) {
-	            if (if_level.top() == false) {
-	                exec_flag = true;
-	            }
-	        }
+            exprcond.rmem++;
         }
     };
-    phoenix::function<check_if_> check_if;
+ 
+    struct my_endif_if_
+    {
+        template <typename T1, typename T2>
+	    void operator()(T1 const &t1, T2 const &t2) const
+	    {
+	        int o = if_occur - (if_occur-1);
+	        code_str
+	            .append(QString("@L%1:\njmp L%1\n")
+	            .arg(o));
+	            MsgBox("222222222222222",code_str);
+	    }
+    };
+    struct my_check_if_
+    {                           
+        template <typename T1, typename T2>
+	    void operator()(T1 const &t1, T2 const &t2) const
+        {
+            mem_str
+                .append(QString("mem_%2 = %1\n")
+                .arg(exprcond.lhs.toDouble())
+                .arg(lab_count++));
+            mem_str
+                .append(QString("mem_%2 = %1\n")
+                .arg(exprcond.rhs.toDouble())
+                .arg(lab_count++));
+            
+            QString str;
+            code_str
+                .append(QString("jmp aL%1\ncL%2:\ncmp mem[%3], mem[%4]\n")
+                .arg(if_occur-1)
+                .arg(if_occur)
+                .arg(lab_count-2)
+                .arg(lab_count-1));
+            code_str
+                .append(QString("jne L%1\n")
+                .arg(if_occur++));
+            
+            if (if_occur < 1)
+            code_str
+                .append(QString(">L%1:\n")
+                .arg(if_occur));
+                
+            str
+            .append(code_str)
+            .append(mem_str);
+            
+            MsgBox("imformer",str);
+        }        
+    };
+    
+    phoenix::function<my_endif_if_> endif_if;
+    phoenix::function<my_check_if_> check_if;
+    
     phoenix::function<lhs_symbol_expr_> lhs_set_expr;
     phoenix::function<rhs_symbol_expr_> rhs_set_expr;
     //
+     
+    struct add_parameter_
+    {
+        typedef void result_type;
+        void operator()(QString str) const
+        {
+            bool found = false;
+            _end_token = str;
+            
+            if (code.isEmpty()) {
+			    my_ops ops;
+			    ops.name = str;
+			    ops.what = whatIsLocal;
+			    ops.value = true;
+			    code.append(ops);
+		    }
+
+            for (code_iterator  = code.begin();
+			    code_iterator != code.end();
+			    code_iterator++) {
+
+			    if (str == code_iterator->name)
+			    {
+				    _end_token = str;
+				    found      = true;
+				    break;
+			    }
+		    }
+
+		    if (found == false)
+		    {	my_ops ptr;
+			    ptr.name = str;
+			    ptr.what = whatIsParameter;
+			    ptr.value = true;
+			    code.append(ptr);
+		    }
+        }
+    };
+
+    struct add_local_
+    {
+        typedef void result_type;
+        void operator()(QString str) const
+        {
+        MsgBox("localer",str);
+		    bool found = false;
+		    _end_token = str;
+
+		    if (code.isEmpty()) {
+			    my_ops ops;
+			    ops.name = str;
+			    ops.what = whatIsLocal;
+			    code.append(ops);
+		    }
+
+		    for (code_iterator  = code.begin();
+			     code_iterator != code.end();
+			     code_iterator++) {
+
+			    if (str == code_iterator->name)
+			    {
+				    _end_token = str;
+				    found      = true;
+				    break;
+			    }
+		    }
+
+		    if (found == false)
+		    {	my_ops ptr;
+			    ptr.name = str;
+			    ptr.what = whatIsLocal;
+			    code.append(ptr);
+		    }
+        }
+    };
+    
+    class MyClassList {
+    public:
+        QString name;
+        QVariant ctype;
+    };
+
+    QVector<MyClassList> ClassContainer;
+    struct add_class_
+    {
+        typedef void result_type;
+        void operator()(QString str) const
+        {
+            MyClassList tmp;
+            tmp.name = str;
+            tmp.ctype = 1;
+            ClassContainer << tmp;
+            
+            isLastClass = true;
+            MsgBox("info",str);
+        }
+    };
+    
+    struct check_token_ {
+        typedef void result_type;
+        void operator()(QString str, double val) const
+        {
+            if (isLastClass == false)
+            {
+                get_token_value(str,val);
+                op2(str,val);
+                get_token_value(_end_token,val);
+            }
+            else {
+			    bool found = false;
+			    _end_token = str;
+
+			    if (code.isEmpty()) {
+				    my_ops ops;
+				    ops.name = str;
+				    ops.what = whatIsClass;
+				    code.append(ops);
+			    }
+
+			    for (code_iterator  = code.begin();
+				     code_iterator != code.end();
+				     code_iterator++) {
+
+				    if (str == code_iterator->name)
+				    {
+					    _end_token = str;
+					    found      = true;
+					    break;
+				    }
+			    }
+
+			    if (found == false)
+			    {	my_ops ptr;
+				    ptr.name = str;
+				    ptr.what = whatIsClass;
+				    code.append(ptr);
+			    }
+            }
+            
+            isLastClass = false;
+        }
+    };
+    phoenix::function<check_token_>   check_token;
+    phoenix::function<add_parameter_> add_parameter;
+    phoenix::function<add_local_>     add_local;
+    phoenix::function<add_class_>     add_class;
     
 	template <typename Iterator, typename FPT, typename Skipper = dbase_skipper<Iterator>>
 	struct dbase_grammar : public qi::grammar<Iterator, FPT, Skipper>
@@ -852,7 +985,7 @@ namespace client
                 | '(' >> symbol_term [_val =  _1, op("math=",_val,0)] >> ')'
                 | ('-' >> primary    [_val = -_1, op("math=",_val,0)])
                 | ('+' >> primary    [_val =  _1, op("math=",_val,0)])
-
+                
 				| ( math_cos >> '(' >> symbol_term >> ')')  [ _val = func_math_cos(_2) ]
 				| ( math_sin >> '(' >> symbol_term >> ')')  [ _val = func_math_sin(_2) ]
 				| ( math_tan >> '(' >> symbol_term >> ')')  [ _val = func_math_tan(_2) ]
@@ -870,50 +1003,38 @@ namespace client
  
             symbol_def_parameter =
             (
-                symbol_parameter >
-            	(   (
-                        (
-                            (symbol_alpha)
-                        >> *(
-                                ',' > (symbol_alpha)
-                            )
-                        )
-                    )
-                    |
-                    (
-                        symbol_alpha  >> *(symbol_alpha >
-                        eps[my_error("missong comma between variable") ])
-                    )
-                )
+                symbol_parameter > (variable >> *qi::space)
+                [
+                    add_parameter(phx::construct<QString>(_1))
+                ]
+                >> *( ',' > variable >> *qi::space)
+                [
+                    add_parameter(phx::construct<QString>(_1))
+                ]
             )
             ;
+            
             symbol_def_local =
             (
-                symbol_local >
-            	(   (
-                        (
-                            (symbol_alpha)
-                    	)
-                        >> *(
-                                ',' > (symbol_alpha
-                            )
-                        )
-                    )
-                    |
-                    (
-                        symbol_alpha  >> *(symbol_alpha >
-                        eps[my_error("missong comma between variable") ])
-                    )
+            	(
+            	    symbol_local > (variable >> *qi::space)
+                    [
+                        add_local(phx::construct<QString>(_1))
+                    ]
+                    >> *(',' > variable >> *qi::space)
+                    [
+                        add_local(phx::construct<QString>(_1))
+                    ]
                 )
             )
             ;
  
             symbol_alpha %=
             (
-                (symbol_alpha_alone
+                (symbol_alpha_alone)
                 [
                     _val = qi::_1
-            	]   )
+            	]
             );
             symbol_alpha_alone %= (
                 (qi::char_("a-zA-Z")    
@@ -926,42 +1047,65 @@ namespace client
 			qualified_id %= ((qi::alpha | qi::char_("_")) >> *qi::char_("a-zA-Z0-9_"))
 			[_val = qi::_1];
 
-            variable = (qualified_id [_val = qi::_1 ] );
+            variable = (qualified_id) [_val = qi::_1 ];
 
 
             lhs_symbol_expr %= symbol_expr [ _val = _1];
             rhs_symbol_expr %= symbol_expr [ _val = _1];
             
 			symbol_matched_if %=
-			(
+			(			    
 			    (lhs_symbol_expr >> "==" >> rhs_symbol_expr)
 			    [
 			        lhs_set_expr(phx::construct<double>(qi::_1)),
 			        rhs_set_expr(phx::construct<double>(qi::_2)),
-			        
-			        check_if(std::string("=="),0)
+			        check_if(exprcond.lmem, exprcond.rmem)
+			    ]
+			    |
+			    (*qi::space >> lit("!")        >>
+			     *qi::space >> lhs_symbol_expr >>
+			     *qi::space)
+			    [
+			        lhs_set_expr(false),
+			        rhs_set_expr(false)
+			    ]
+			    |
+			    (*qi::space >> lhs_symbol_expr >> *qi::space)
+			    [
+			        lhs_set_expr(true),
+			        rhs_set_expr(true)
 			    ]
 			)
 			;
 
             symbol_def_if %=
             (
-                symbol_if >> symbol_matched_if
-                          >> *(symsbols)  >>
-                symbol_endif
-                [
-                    check_if(std::string(""),1)
-                ]
+                symbol_if
+                    >> *qi::space >> *lit("(")
+                    >> *qi::space >> symbol_matched_if
+                    >> *qi::space >> *lit(")")
+                    >> *qi::space >> *(symsbols)
+                    >> *qi::space >>
+                symbol_endif [ endif_if(1,1) ]
             )
             ;
             
             symbol_def_else %=
             (
-                (symbol_else)
-                [
-                    check_if(std::string(""),2)
-                    
-                ]
+                (symbol_else >> *qi::space)
+            )
+            ;
+            
+            while_cond %=
+            (
+                  ("!" >> variable >> "=" >> symbol_expr)
+                | (       variable >> "=" >> symbol_expr)
+            )
+            ;
+            symbol_def_while %=
+            (
+                symbol_while >> "(" >> while_cond >> ")" >> *symsbols >>
+                symbol_endwhile
             )
             ;
 
@@ -978,18 +1122,26 @@ namespace client
             ;
 
             symbol_string    %= (any_stringSB  [ _val = _1, any_string_value(_1) ] );
-            symbol_expr %=
+            symbol_expr =
             (
-	            symbol_term [ _val = _1 ]
+	            (
+	                (symbol_new >> variable >> "(" >> ")")
+	                [
+	                    add_class(phx::construct<QString>(_1))
+	                ]
+	            )
+	            |
+	            (symbol_term [ _val = _1 ] )
 			)
             ;
 
             symbol_def_expr =
             (
                 (
-					(	(symbol_def_if)
-					)
+						(symbol_def_if)
 					|   (symbol_def_else)
+					|   (symbol_def_while)
+					
 					|
 					(	(symbol_print)
 					>>	(
@@ -1000,9 +1152,7 @@ namespace client
 					(      (variable >> lit("=")
 		        		>>  symbol_expr)
 							[
-								get_token_value(_1,_2),
-								op2(_1,_2),
-								get_token_value(_end_token,_2)
+							    check_token(_1,_2)
 							]
 		            )
 				)
@@ -1025,6 +1175,7 @@ namespace client
             |   symbol_false
             |   symbol_true
 			|	symbol_print
+			|   symbol_while | symbol_endwhile
             |   symbol_of
             |   symbol_new
             |   symbol_else
@@ -1042,6 +1193,8 @@ namespace client
             any_stringSB.name(" bracket STRING bracket");
 
 			symbol_print			.name("PRINT");
+			symbol_while            .name("WHILE");
+			symbol_endwhile         .name("ENDWHILE");
             symbol_if               .name("IF");
             symbol_endif            .name("ENDIF");
             symbol_of               .name("OF");
@@ -1074,6 +1227,9 @@ namespace client
             symbol_function  =  lexeme[no_case["function"]];
             symbol_parameter =  lexeme[no_case["parameter"]];
             symbol_procedure =  lexeme[no_case["procedure"]];
+            symbol_endwhile  =  lexeme[no_case["endwhile"]];
+            symbol_while     =  lexeme[no_case["while"]];
+            
 			symbol_print     =  lexeme[no_case["print"]];
 
             qi::on_error<fail>( symsbols, client::error_handler(_4, _3, _2) );
@@ -1099,7 +1255,7 @@ namespace client
 		boost::phoenix::function<error          > my_error;
         boost::phoenix::function<line_no_struct > line_func;
  
-        qi::rule<Iterator, QString(), Skipper>
+        qi::rule<Iterator, QString()>
         	variable,
         	qualified_id,
 
@@ -1127,6 +1283,9 @@ namespace client
         	symsbols, dont_handle_keywords, conditions,
 			symbol_local,
 			symbol_print,
+			
+			symbol_while, symbol_endwhile,
+			
 			symbol_if, is_function,
 			symbol_else,
 			symbol_endif,
@@ -1139,6 +1298,7 @@ namespace client
 			symbol_parameter, symbol_def_string,
 			symbol_procedure, symbol_function, symbol_proc_stmts, symbol_return,
  
+            symbol_def_while, while_cond,
             symbol_def_else,
 			symbol_def_expr,
 			symbol_def_print,
@@ -1219,7 +1379,16 @@ bool parseText(std::string s)
     code.resize(0);
     
     // if conditions ...
-    if_level.clear();
+    client::exec_flag = true;
+    
+    client::lab_count = 0;
+    client::ife_count = 0;
+    
+    client::code_str.clear();
+    client::mem_str .clear();
+            
+    client::exprcond.lmem = 0;
+    client::exprcond.rmem = 0;
 
     bool r = false;
 	try {
