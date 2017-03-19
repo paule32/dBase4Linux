@@ -680,7 +680,10 @@ const int whatIsParameter = 4;
 	};
 	boost::phoenix::function<any_string_value_> any_string_value;
 
-int if_occur = 0;
+int if_occur = 1;
+int ifA = 1;
+int ifB = 1;
+
 	struct print_string_ {
 		typedef QString result_type;
 		template <typename T>
@@ -695,7 +698,6 @@ int if_occur = 0;
 	            QString("push LC%1\n").arg(lab_count-1) +
 	            QString("call print\n"));
 
-            code_pos += 1;	        	            
 			return t1;
 		}
 	};
@@ -731,11 +733,59 @@ int if_occur = 0;
         template <typename T1, typename T2>
 	    void operator()(T1 const &t1, T2 const &t2) const
 	    {
-	        int o = if_occur - (if_occur-1);
-	        code_str
-	            .append(QString("@L%1:\njmp L%1\n")
-	            .arg(o));
-	            MsgBox("222222222222222",code_str);
+	        if (if_occur-1 == 1) {
+    	        code_str
+    	            .append(QString("=== _jmp _L%2:\n")
+	                .arg(--if_occur-1));
+	        }
+	        else if (if_occur-1 <= 0) {
+	            code_str
+	                .append(QString("---\nL%1:\nret\n")
+	                .arg(--if_occur));
+	        }
+	        else {
+	            int c;
+	            int L1 = --if_occur;
+	            
+	            static int if_flag = 1;
+                static int if_array[2048];
+                
+                bool found = false;
+                
+                for (c = 0; c < 2048; c++) {
+                    if ((if_array[c] == 'u')
+                    &&  (c == 2)) {
+                        found = true;
+                        break;
+                    }
+                }
+	            
+	            if (found)
+	            c = 1; else
+	            c = 0;
+	            
+	            code_str
+	                .append(QString("---\n_jmp _L%2:\nL%1:\n")
+	                .arg(L1-c)
+	                .arg(L1-c));
+	                
+	            if (if_flag) {
+	                if (L1-1 <= 0) {
+	                    if_flag = 0;
+	                    for (c = 0; c < 2048; c++)
+	                    if_array[c] = 'o';
+	                }
+	            }
+	        }
+	            
+	        ifA = if_occur;
+	            
+	        QString str;
+	        str .append(code_str)
+	            .append("L0:\nret\n")
+	            .append(mem_str);
+	            
+	        MsgBox("2222---2222",str);
 	    }
     };
     struct my_check_if_
@@ -752,27 +802,25 @@ int if_occur = 0;
                 .arg(exprcond.rhs.toDouble())
                 .arg(lab_count++));
             
-            QString str;
             code_str
-                .append(QString("jmp aL%1\ncL%2:\ncmp mem[%3], mem[%4]\n")
-                .arg(if_occur-1)
-                .arg(if_occur)
+                .append(QString("cmp mem[%3], mem[%4]\n")
                 .arg(lab_count-2)
                 .arg(lab_count-1));
+                
+            ifB = ++if_occur;
+            if (ifB == ifA)
+            --ifB;
+            
+            int c;
+            if (ifB-1 < 1)
+            c = ifB; else
+            c = ifB - 1;
+            
             code_str
                 .append(QString("jne L%1\n")
-                .arg(if_occur++));
-            
-            if (if_occur < 1)
-            code_str
-                .append(QString(">L%1:\n")
-                .arg(if_occur));
-                
-            str
-            .append(code_str)
-            .append(mem_str);
-            
-            MsgBox("imformer",str);
+                .arg(c));
+                            
+            MsgBox("imformer",code_str);
         }        
     };
     
