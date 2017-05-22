@@ -1,5 +1,5 @@
 #include "source/includes/mainwindow.h"
-#include "source/includes/helplistview.h"
+#include "source/includes/helpbrowser.h"
 
 HelpBrowser::HelpBrowser(QHelpEngine* helpEngine, QWidget* parent)
     : QTextBrowser(parent),
@@ -31,7 +31,7 @@ bool HelpBrowser::eventFilter(QObject *target, QEvent *event)
     return QTextBrowser::eventFilter(target,event);
 }
 
-
+#ifdef XYYYYY_YYYY_YYYY
 HelpListView::HelpListView(const QVector<QVariant> &data, HelpListView *parent)
 {
 	parentItem = parent;
@@ -415,3 +415,4 @@ HelpListViewModel::setupModelData(
         ++number;
     }
 }
+#endif

@@ -2,7 +2,7 @@
 #include <QEvent>
 #include <QMouseEvent>
 #include "source/includes/mainclass.h"
-#include "mainprocess.h"
+//#include "mainprocess.h"
 
        class MainWindow *w;
 static class MyMainWindow *wm;

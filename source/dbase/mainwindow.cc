@@ -1,7 +1,7 @@
 #include "source/includes/mainwindow.h"
 #include "source/includes/update_dbase.h"
-#include "source/includes/helplistview.h"
-#include "source/includes/antifreeze.h"
+//#include "source/includes/helplistview.h"
+//#include "source/includes/antifreeze.h"
 
 #include <QStandardItemModel>
 #include <QStatusBar>

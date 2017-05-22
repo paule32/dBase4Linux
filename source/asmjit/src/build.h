@@ -34,7 +34,7 @@
 // static build as well.
 //
 // #define ASMJIT_EMBED              // Asmjit is embedded (implies ASMJIT_STATIC).
-#define ASMJIT_STATIC             // Define to enable static-library build.
+// #define ASMJIT_STATIC             // Define to enable static-library build.
 
 // AsmJit Build Modes
 // ------------------
@@ -47,7 +47,7 @@
 // debug AsmJit itself.
 //
 // #define ASMJIT_DEBUG              // Define to enable debug-mode.
-#define ASMJIT_RELEASE            // Define to enable release-mode.
+// #define ASMJIT_RELEASE            // Define to enable release-mode.
 // #define ASMJIT_TRACE              // Define to enable tracing.
 
 // AsmJit Build Backends
@@ -57,7 +57,7 @@
 // defined AsmJit will use host architecture by default (for JIT code generation).
 //
 // #define ASMJIT_BUILD_X86          // Define to enable x86 instruction set (32-bit).
-#define ASMJIT_BUILD_X64          // Define to enable x64 instruction set (64-bit).
+// #define ASMJIT_BUILD_X64          // Define to enable x64 instruction set (64-bit).
 // #define ASMJIT_BUILD_HOST         // Define to enable host instruction set.
 
 // AsmJit Build Features

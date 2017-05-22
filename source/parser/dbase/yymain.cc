@@ -680,9 +680,7 @@ const int whatIsParameter = 4;
 	};
 	boost::phoenix::function<any_string_value_> any_string_value;
 
-int if_occur = 1;
-int ifA = 1;
-int ifB = 1;
+int if_occur = 0;
 
 	struct print_string_ {
 		typedef QString result_type;
@@ -732,61 +730,29 @@ int ifB = 1;
     {
         template <typename T1, typename T2>
 	    void operator()(T1 const &t1, T2 const &t2) const
-	    {
-	        if (if_occur-1 == 1) {
-    	        code_str
-    	            .append(QString("=== _jmp _L%2:\n")
-	                .arg(--if_occur-1));
-	        }
-	        else if (if_occur-1 <= 0) {
-	            code_str
-	                .append(QString("---\nL%1:\nret\n")
-	                .arg(--if_occur));
-	        }
-	        else {
-	            int c;
-	            int L1 = --if_occur;
-	            
-	            static int if_flag = 1;
-                static int if_array[2048];
-                
-                bool found = false;
-                
-                for (c = 0; c < 2048; c++) {
-                    if ((if_array[c] == 'u')
-                    &&  (c == 2)) {
-                        found = true;
-                        break;
-                    }
-                }
-	            
-	            if (found)
-	            c = 1; else
-	            c = 0;
-	            
-	            code_str
-	                .append(QString("---\n_jmp _L%2:\nL%1:\n")
-	                .arg(L1-c)
-	                .arg(L1-c));
-	                
-	            if (if_flag) {
-	                if (L1-1 <= 0) {
-	                    if_flag = 0;
-	                    for (c = 0; c < 2048; c++)
-	                    if_array[c] = 'o';
-	                }
-	            }
-	        }
-	            
-	        ifA = if_occur;
+	    {	        
+	        code_str
+                .append(QString("L%1:\n")
+                .arg(if_occur));
+
 	            
 	        QString str;
 	        str .append(code_str)
-	            .append("L0:\nret\n")
 	            .append(mem_str);
-	            
+
+	        --if_occur;	            
 	        MsgBox("2222---2222",str);
 	    }
+    };
+    struct my_check_el_
+    {
+        template <typename T1>
+	    void operator()(T1 const &t1) const
+	    {
+            code_str
+                .append(QString("jmp L%1\n")
+                .arg(if_occur));
+        }
     };
     struct my_check_if_
     {                           
@@ -807,18 +773,11 @@ int ifB = 1;
                 .arg(lab_count-2)
                 .arg(lab_count-1));
                 
-            ifB = ++if_occur;
-            if (ifB == ifA)
-            --ifB;
-            
-            int c;
-            if (ifB-1 < 1)
-            c = ifB; else
-            c = ifB - 1;
+            ++if_occur;
             
             code_str
                 .append(QString("jne L%1\n")
-                .arg(c));
+                .arg(if_occur));
                             
             MsgBox("imformer",code_str);
         }        
@@ -826,6 +785,7 @@ int ifB = 1;
     
     phoenix::function<my_endif_if_> endif_if;
     phoenix::function<my_check_if_> check_if;
+    phoenix::function<my_check_el_> check_else;
     
     phoenix::function<lhs_symbol_expr_> lhs_set_expr;
     phoenix::function<rhs_symbol_expr_> rhs_set_expr;
@@ -908,23 +868,29 @@ int ifB = 1;
     
     class MyClassList {
     public:
+        QString parent;
         QString name;
         QVariant ctype;
     };
-
     QVector<MyClassList> ClassContainer;
+    QString current_class;
     struct add_class_
     {
         typedef void result_type;
-        void operator()(QString str) const
+        void operator()(QString str, QString parent) const
         {
             MyClassList tmp;
-            tmp.name = str;
-            tmp.ctype = 1;
+            tmp.parent = parent;
+            tmp.name   = str;
+            tmp.ctype  = 1;
             ClassContainer << tmp;
             
-            isLastClass = true;
-            MsgBox("info",str);
+            code_str
+                .append(QString("new class %1 of %2\n")
+                .arg(str)
+                .arg(parent));
+                
+            current_class = str;
         }
     };
     
@@ -1132,18 +1098,12 @@ int ifB = 1;
                     >> *qi::space >> *lit("(")
                     >> *qi::space >> symbol_matched_if
                     >> *qi::space >> *lit(")")
-                    >> *qi::space >> *(symsbols)
+                    >> *qi::space >> *(symsbols >> *(symbol_else [check_else(11)] >> symsbols))
                     >> *qi::space >>
                 symbol_endif [ endif_if(1,1) ]
             )
             ;
-            
-            symbol_def_else %=
-            (
-                (symbol_else >> *qi::space)
-            )
-            ;
-            
+                       
             while_cond %=
             (
                   ("!" >> variable >> "=" >> symbol_expr)
@@ -1175,7 +1135,10 @@ int ifB = 1;
 	            (
 	                (symbol_new >> variable >> "(" >> ")")
 	                [
-	                    add_class(phx::construct<QString>(_1))
+	                    add_class(
+	                        phx::construct<QString>(_1),
+	                        phx::construct<QString>("new")
+	                    )
 	                ]
 	            )
 	            |
@@ -1212,7 +1175,7 @@ int ifB = 1;
                  symbol_class > (symbol_alpha) >
                  symbol_of    > (symbol_alpha)
             >> *(symsbols) >
-                 symbol_endclass [ _val = 1 ]
+                 symbol_endclass
             )
             ;
 

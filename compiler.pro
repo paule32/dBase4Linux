@@ -16,13 +16,13 @@ TOPDIR=$$PWD
 SRCDIR=$${TOPDIR}/source
 HDRDIR=$${SRCDIR}/includes
 
-GENFOLDER =$${TOPDIR}/build/
+GENFOLDER=$${TOPDIR}/build/
 
 TEMPLATE_DEPTH = 516
 
 UI_DIR =$${TOPDIR}/.uic
 MOC_DIR=$${TOPDIR}/.moc
-OBJ_DIR=$${TOPDIR}/.obj
+OBJECTS_DIR=$${TOPDIR}/.obj
 RCC_DIR=$${TOPDIR}/.res
 
 DEFINES += BUILDTIME=\\\"$$system(date '+%H:%M:%S')\\\"
@@ -32,7 +32,7 @@ DEFINES += BUILDDATE=\\\"$$system(date '+%Y-%m-%d')\\\"
 # if you would not use pch - pre-compiled-header, just remove -H block
 #----------------------------------------------------------------------
 QMAKE_CXXFLAGS += \
-	-std=c++11 -ggdb \
+	-std=c++14 -ggdb \
 	-Wno-unused-parameter \
 	-Wno-unused-variable \
 	-Wno-unused-local-typedefs \
@@ -68,7 +68,6 @@ INCLUDEPATH += \
         /usr/include
 
 SOURCES += \
-		$${SRCDIR}/dbase/singleapplication.cc \
         $${SRCDIR}/dbase/antifreeze.cc \
         $${SRCDIR}/dbase/assistant.cc \
         $${SRCDIR}/dbase/main.cc \
@@ -84,10 +83,10 @@ SOURCES += \
         $${SRCDIR}/dbase/dbasemainmenu.cc \
         $${SRCDIR}/dbase/helpdocker.cc \
         $${SRCDIR}/dbase/click.cc \
-        $${SRCDIR}/dbase/keypress.cc \
-        \
-        $${SRCDIR}/parser/dbase/yymain.cc \
-        \
+    $${SRCDIR}/dbase/keypress.cc \
+    \
+    $${SRCDIR}/parser/dbase/yymain.cc \
+    \
     source/dbase/settings_dialog.cc \
     source/dbase/update_dbase.cc \
     source/parser/rfc/rfc_update_dbase.cc \
@@ -95,14 +94,35 @@ SOURCES += \
     source/dbase/mainclass.cc \
     source/parser/dbase/testcase/nstest1.cc \
     source/parser/dbase/dbaseWindow.cc \
-    source/parser/dbase/type.cc
+    source/parser/dbase/type.cc \
+    \
+    source/asmjit/base/assembler.cpp \
+    source/asmjit/base/compiler.cpp \
+    source/asmjit/base/compilercontext.cpp \
+    source/asmjit/base/constpool.cpp \
+    source/asmjit/base/containers.cpp \
+    source/asmjit/base/cpuinfo.cpp \
+    source/asmjit/base/globals.cpp \
+    source/asmjit/base/hlstream.cpp \
+    source/asmjit/base/logger.cpp \
+    source/asmjit/base/operand.cpp \
+    source/asmjit/base/podvector.cpp \
+    source/asmjit/base/runtime.cpp \
+    source/asmjit/base/utils.cpp \
+    source/asmjit/base/vmem.cpp \
+    source/asmjit/base/zone.cpp \
+    \
+    source/asmjit/x86/x86assembler.cpp \
+    source/asmjit/x86/x86compiler.cpp \
+    source/asmjit/x86/x86compilercontext.cpp \
+    source/asmjit/x86/x86compilerfunc.cpp \
+    source/asmjit/x86/x86inst.cpp \
+    source/asmjit/x86/x86operand.cpp \
+    source/asmjit/x86/x86operand_regs.cpp
 
 HEADERS += \
-	$${HDRDIR}/mainprocess.h \
-	$${HDRDIR}/singleapplication.h \
 	$${HDRDIR}/antifreeze.h \
 	$${HDRDIR}/assistant.h \
-	$${HDRDIR}/helplistview.h \
 	$${HDRDIR}/mainwindow.h \
 	$${HDRDIR}/editorgutter.h \
 	$${HDRDIR}/scene.h \
@@ -138,7 +158,40 @@ HEADERS += \
     source/parser/dbase/dBaseWindow.h \
     source/parser/dbase/type.h \
     source/parser/dbase/skipper.h \
-    source/parser/dbase/symbol.h
+    source/parser/dbase/symbol.h \
+    \
+    source/asmjit/apibegin.h \
+    source/asmjit/apiend.h \
+    source/asmjit/asmjit.h \
+    source/asmjit/base.h \
+    source/asmjit/build.h \
+    source/asmjit/host.h \
+    source/asmjit/x86.h \
+    \
+    source/asmjit/base/assembler.h \
+    source/asmjit/base/compiler.h \
+    source/asmjit/base/compilercontext_p.h \
+    source/asmjit/base/compilerfunc.h \
+    source/asmjit/base/constpool.h \
+    source/asmjit/base/containers.h \
+    source/asmjit/base/cpuinfo.h \
+    source/asmjit/base/globals.h \
+    source/asmjit/base/hlstream.h \
+    source/asmjit/base/logger.h \
+    source/asmjit/base/operand.h \
+    source/asmjit/base/podvector.h \
+    source/asmjit/base/runtime.h \
+    source/asmjit/base/utils.h \
+    source/asmjit/base/vectypes.h \
+    source/asmjit/base/vmem.h \
+    source/asmjit/base/zone.h \
+    \
+    source/asmjit/x86/x86assembler.h \
+    source/asmjit/x86/x86compiler.h \
+    source/asmjit/x86/x86compilercontext_p.h \
+    source/asmjit/x86/x86compilerfunc.h \
+    source/asmjit/x86/x86inst.h \
+    source/asmjit/x86/x86operand.h
 
 FORMS   += \
         $${SRCDIR}/forms/mainwindow.ui \
@@ -176,7 +229,7 @@ DISTFILES += \
     ../media/sdb1/e-learning/mov/speech/doc/images/neuron.png \
     ../media/sdb1/e-learning/mov/speech/doc/notizen.tex
 
-LIBS += -L"/usr/local/lib64" -L/srv/Projekte/dbase/lib -lstdc++
+LIBS += -L"/opt/qt5/5.5/gcc_64/lib" -L~/Projekte/dbase/lib -lstdc++
 LIBS += -lboost_system
 
 #LIBS += -lmod_dbase
