@@ -1,6 +1,0 @@
-#ifndef DBASE_EXCEPTION_H
-#define DBASE_EXCEPTION_H
-
-
-#endif // DBASE_EXCEPTION_H
-

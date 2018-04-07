@@ -1,7 +1,0 @@
-Credentials
-Sandbox Account
-jkallup-facilitator@web.de
-Access Token
-access_token$sandbox$h8nczww9xkqd3c4t$921591bbbe0d3bbe5d2e727281c8174a
-Expiry Date
-24 Jul 2026

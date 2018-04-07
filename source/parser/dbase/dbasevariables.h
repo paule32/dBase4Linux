@@ -1,4 +1,0 @@
-#ifndef DBASEVARIABLES_H
-#define DBASEVARIABLES_H
-
-#endif // DBASEVARIABLES_H

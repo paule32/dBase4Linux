@@ -1,4 +1,0 @@
-#ifndef EXPRESSION_AST_H
-#define EXPRESSION_AST_H
-
-#endif // EXPRESSION_AST_H
